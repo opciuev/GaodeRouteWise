@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>正确的高德API使用方法</title>
+    <script>
+        window._AMapSecurityConfig = {
+            securityJsCode: "db2b6cf5ae4f82ee233b1abe16aa459a",
+        }
+    </script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        button { padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .result { background: #f8f9fa; padding: 15px; margin: 10px 0; border-radius: 5px; border-left: 4px solid #007bff; white-space: pre-wrap; }
+        .success { border-left-color: #28a745; }
+        .error { border-left-color: #dc3545; }
+        input { padding: 8px; margin: 5px; border: 1px solid #ddd; border-radius: 4px; width: 300px; }
+        #map { width: 100%; height: 400px; border: 1px solid #ddd; margin: 10px 0; }
+        .code-example { background: #f8f9fa; padding: 15px; border-radius: 5px; font-family: monospace; font-size: 12px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 正确的高德地图API使用方法</h1>
+        <p>根据官方文档 <a href="https://lbs.amap.com/api/javascript-api/reference/route-search" target="_blank">路径规划参考手册</a> 的正确用法</p>
+        
+        <div>
+            <h3>1. 加载API</h3>
+            <input type="password" id="apiKey" placeholder="输入API密钥">
+            <button onclick="loadAPI()">加载API</button>
+            <div id="apiResult" class="result">请输入API密钥</div>
+        </div>
+
+        <div>
+            <h3>2. 创建地图</h3>
+            <button onclick="createMap()">创建地图</button>
+            <div id="map"></div>
+            <div id="mapResult" class="result">请先加载API</div>
+        </div>
+
+        <div>
+            <h3>3. 驾车路线规划（按关键字）</h3>
+            <p>官方文档推荐格式：</p>
+            <div class="code-example">
+// 使用关键字数组格式
+const points = [
+    {keyword:'北京南站', city:'北京市'},
+    {keyword:'北京西站', city:'北京市'}
+];
+driving.search(points, callback);
+            </div>
+            <input type="text" id="origin1" value="天安门" placeholder="起点关键字">
+            <input type="text" id="destination1" value="北京西站" placeholder="终点关键字">
+            <button onclick="testDrivingByKeyword()">按关键字规划</button>
+            <div id="result1" class="result">请先创建地图</div>
+        </div>
+
+        <div>
+            <h3>4. 驾车路线规划（按坐标）</h3>
+            <p>官方文档坐标格式：</p>
+            <div class="code-example">
+// 使用坐标格式
+const origin = new AMap.LngLat(116.379028, 39.865042);
+const destination = new AMap.LngLat(116.427281, 39.903719);
+driving.search(origin, destination, callback);
+            </div>
+            <button onclick="testDrivingByCoords()">按坐标规划（天安门→北京西站）</button>
+            <div id="result2" class="result">请先创建地图</div>
+        </div>
+
+        <div>
+            <h3>5. 步行路线规划</h3>
+            <button onclick="testWalking()">步行路线规划</button>
+            <div id="result3" class="result">请先创建地图</div>
+        </div>
+
+        <div>
+            <h3>6. 公交路线规划</h3>
+            <button onclick="testTransfer()">公交路线规划</button>
+            <div id="result4" class="result">请先创建地图</div>
+        </div>
+    </div>
+
+    <script>
+        let AMap;
+        let map;
+
+        function loadAPI() {
+            const key = document.getElementById('apiKey').value.trim();
+            const result = document.getElementById('apiResult');
+            
+            if (!key) {
+                result.innerHTML = '❌ 请输入API密钥';
+                result.className = 'result error';
+                return;
+            }
+
+            result.innerHTML = '🔄 正在加载API...';
+            result.className = 'result';
+
+            const script = document.createElement('script');
+            script.src = `https://webapi.amap.com/maps?v=1.4.15&key=${key}`;
+            
+            script.onload = () => {
+                if (window.AMap) {
+                    AMap = window.AMap;
+                    result.innerHTML = '✅ API加载成功！';
+                    result.className = 'result success';
+                } else {
+                    result.innerHTML = '❌ API对象未找到';
+                    result.className = 'result error';
+                }
+            };
+            
+            script.onerror = () => {
+                result.innerHTML = '❌ 网络错误，无法加载API';
+                result.className = 'result error';
+            };
+            
+            document.head.appendChild(script);
+        }
+
+        function createMap() {
+            const result = document.getElementById('mapResult');
+            
+            if (!AMap) {
+                result.innerHTML = '❌ 请先加载API';
+                result.className = 'result error';
+                return;
+            }
+
+            try {
+                map = new AMap.Map('map', {
+                    zoom: 11,
+                    center: [116.397428, 39.90923]
+                });
+                
+                result.innerHTML = '✅ 地图创建成功！';
+                result.className = 'result success';
+            } catch (error) {
+                result.innerHTML = '❌ 地图创建失败: ' + error.message;
+                result.className = 'result error';
+            }
+        }
+
+        function testDrivingByKeyword() {
+            const result = document.getElementById('result1');
+            const origin = document.getElementById('origin1').value.trim();
+            const destination = document.getElementById('destination1').value.trim();
+            
+            if (!AMap || !map) {
+                result.innerHTML = '❌ 请先创建地图';
+                result.className = 'result error';
+                return;
+            }
+
+            result.innerHTML = '🔄 正在规划路线（按关键字）...';
+            result.className = 'result';
+
+            AMap.plugin('AMap.Driving', function() {
+                const driving = new AMap.Driving({
+                    map: map,
+                    panel: null
+                });
+                
+                // 按照官方文档格式使用关键字数组
+                const points = [
+                    {keyword: origin, city: '北京市'},
+                    {keyword: destination, city: '北京市'}
+                ];
+                
+                driving.search(points, function(status, routeResult) {
+                    if (status === 'complete' && routeResult.routes && routeResult.routes.length > 0) {
+                        const route = routeResult.routes[0];
+                        result.innerHTML = `✅ 驾车路线规划成功（按关键字）！
+起点: ${routeResult.start ? routeResult.start.name : origin}
+终点: ${routeResult.end ? routeResult.end.name : destination}
+距离: ${(route.distance / 1000).toFixed(1)}公里
+时间: ${Math.round(route.time / 60)}分钟
+费用: ¥${route.tolls || 0}`;
+                        result.className = 'result success';
+                    } else {
+                        result.innerHTML = `❌ 路线规划失败
+状态: ${status}
+错误信息: ${routeResult ? routeResult.info || '未知错误' : '无响应'}`;
+                        result.className = 'result error';
+                    }
+                });
+            });
+        }
+
+        function testDrivingByCoords() {
+            const result = document.getElementById('result2');
+            
+            if (!AMap || !map) {
+                result.innerHTML = '❌ 请先创建地图';
+                result.className = 'result error';
+                return;
+            }
+
+            result.innerHTML = '🔄 正在规划路线（按坐标）...';
+            result.className = 'result';
+
+            AMap.plugin('AMap.Driving', function() {
+                const driving = new AMap.Driving({
+                    map: map,
+                    panel: null
+                });
+                
+                // 按照官方文档格式使用坐标
+                const origin = new AMap.LngLat(116.397428, 39.90923); // 天安门
+                const destination = new AMap.LngLat(116.322287, 39.893729); // 北京西站
+                
+                driving.search(origin, destination, function(status, routeResult) {
+                    if (status === 'complete' && routeResult.routes && routeResult.routes.length > 0) {
+                        const route = routeResult.routes[0];
+                        result.innerHTML = `✅ 驾车路线规划成功（按坐标）！
+起点坐标: ${origin.lng}, ${origin.lat}
+终点坐标: ${destination.lng}, ${destination.lat}
+距离: ${(route.distance / 1000).toFixed(1)}公里
+时间: ${Math.round(route.time / 60)}分钟
+费用: ¥${route.tolls || 0}`;
+                        result.className = 'result success';
+                    } else {
+                        result.innerHTML = `❌ 路线规划失败
+状态: ${status}
+错误信息: ${routeResult ? routeResult.info || '未知错误' : '无响应'}`;
+                        result.className = 'result error';
+                    }
+                });
+            });
+        }
+
+        function testWalking() {
+            const result = document.getElementById('result3');
+            
+            if (!AMap || !map) {
+                result.innerHTML = '❌ 请先创建地图';
+                result.className = 'result error';
+                return;
+            }
+
+            result.innerHTML = '🔄 正在规划步行路线...';
+            result.className = 'result';
+
+            AMap.plugin('AMap.Walking', function() {
+                const walking = new AMap.Walking({
+                    map: map,
+                    panel: null
+                });
+                
+                // 使用坐标
+                const origin = new AMap.LngLat(116.397428, 39.90923); // 天安门
+                const destination = new AMap.LngLat(116.322287, 39.893729); // 北京西站
+                
+                walking.search(origin, destination, function(status, walkResult) {
+                    if (status === 'complete' && walkResult.routes && walkResult.routes.length > 0) {
+                        const route = walkResult.routes[0];
+                        result.innerHTML = `✅ 步行路线规划成功！
+距离: ${(route.distance / 1000).toFixed(1)}公里
+时间: ${Math.round(route.time / 60)}分钟`;
+                        result.className = 'result success';
+                    } else {
+                        result.innerHTML = `❌ 步行路线规划失败
+状态: ${status}
+错误信息: ${walkResult ? walkResult.info || '未知错误' : '无响应'}`;
+                        result.className = 'result error';
+                    }
+                });
+            });
+        }
+
+        function testTransfer() {
+            const result = document.getElementById('result4');
+            
+            if (!AMap || !map) {
+                result.innerHTML = '❌ 请先创建地图';
+                result.className = 'result error';
+                return;
+            }
+
+            result.innerHTML = '🔄 正在规划公交路线...';
+            result.className = 'result';
+
+            AMap.plugin('AMap.Transfer', function() {
+                const transfer = new AMap.Transfer({
+                    map: map,
+                    panel: null,
+                    city: '北京'
+                });
+                
+                // 使用坐标
+                const origin = new AMap.LngLat(116.397428, 39.90923); // 天安门
+                const destination = new AMap.LngLat(116.322287, 39.893729); // 北京西站
+                
+                transfer.search(origin, destination, function(status, transferResult) {
+                    if (status === 'complete' && transferResult.plans && transferResult.plans.length > 0) {
+                        const plan = transferResult.plans[0];
+                        result.innerHTML = `✅ 公交路线规划成功！
+距离: ${(plan.distance / 1000).toFixed(1)}公里
+时间: ${Math.round(plan.time / 60)}分钟
+费用: ¥${plan.cost || 0}`;
+                        result.className = 'result success';
+                    } else {
+                        result.innerHTML = `❌ 公交路线规划失败
+状态: ${status}
+错误信息: ${transferResult ? transferResult.info || '未知错误' : '无响应'}`;
+                        result.className = 'result error';
+                    }
+                });
+            });
+        }
+    </script>
+</body>
+</html>

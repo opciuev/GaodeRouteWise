@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>高德API详细诊断</title>
+    <script>
+        window._AMapSecurityConfig = {
+            securityJsCode: "db2b6cf5ae4f82ee233b1abe16aa459a",
+        }
+    </script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 1000px; margin: 0 auto; }
+        button { padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .result { background: #f8f9fa; padding: 15px; margin: 10px 0; border-radius: 5px; border-left: 4px solid #007bff; white-space: pre-wrap; font-family: monospace; font-size: 12px; }
+        .success { border-left-color: #28a745; }
+        .error { border-left-color: #dc3545; }
+        .warning { border-left-color: #ffc107; }
+        input { padding: 8px; margin: 5px; border: 1px solid #ddd; border-radius: 4px; width: 300px; }
+        #map { width: 100%; height: 300px; border: 1px solid #ddd; margin: 10px 0; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 8px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 高德地图API详细诊断工具</h1>
+        
+        <div class="section">
+            <h3>1. API密钥加载</h3>
+            <input type="password" id="apiKey" placeholder="输入API密钥">
+            <button onclick="loadAPI()">加载API</button>
+            <div id="apiResult" class="result">请输入API密钥</div>
+        </div>
+
+        <div class="section">
+            <h3>2. 地图创建</h3>
+            <button onclick="createMap()">创建地图</button>
+            <div id="map"></div>
+            <div id="mapResult" class="result">请先加载API</div>
+        </div>
+
+        <div class="section">
+            <h3>3. 详细错误诊断</h3>
+            <button onclick="runFullDiagnostic()">运行完整诊断</button>
+            <div id="diagnosticResult" class="result">请先创建地图</div>
+        </div>
+
+        <div class="section">
+            <h3>4. 单项测试</h3>
+            <button onclick="testGeocoder()">测试地理编码</button>
+            <button onclick="testDriving()">测试驾车规划</button>
+            <button onclick="testWalking()">测试步行规划</button>
+            <button onclick="testTransfer()">测试公交规划</button>
+            <div id="singleTestResult" class="result">点击按钮进行单项测试</div>
+        </div>
+    </div>
+
+    <script>
+        let AMap;
+        let map;
+
+        function loadAPI() {
+            const key = document.getElementById('apiKey').value.trim();
+            const result = document.getElementById('apiResult');
+            
+            if (!key) {
+                result.innerHTML = '❌ 请输入API密钥';
+                result.className = 'result error';
+                return;
+            }
+
+            result.innerHTML = '🔄 正在加载API...';
+            result.className = 'result';
+
+            // 移除旧脚本
+            const oldScript = document.querySelector('script[src*="webapi.amap.com"]');
+            if (oldScript) oldScript.remove();
+
+            const script = document.createElement('script');
+            script.src = `https://webapi.amap.com/maps?v=1.4.15&key=${key}`;
+            
+            script.onload = () => {
+                if (window.AMap) {
+                    AMap = window.AMap;
+                    result.innerHTML = `✅ API加载成功！
+API密钥: ${key.substring(0, 8)}...
+AMap对象: ${typeof AMap}
+可用插件: ${Object.keys(AMap).filter(k => k.startsWith('plugin') || k.includes('Plugin')).join(', ') || '需要动态加载'}`;
+                    result.className = 'result success';
+                } else {
+                    result.innerHTML = '❌ API对象未找到';
+                    result.className = 'result error';
+                }
+            };
+            
+            script.onerror = () => {
+                result.innerHTML = '❌ 网络错误，无法加载API';
+                result.className = 'result error';
+            };
+            
+            document.head.appendChild(script);
+        }
+
+        function createMap() {
+            const result = document.getElementById('mapResult');
+            
+            if (!AMap) {
+                result.innerHTML = '❌ 请先加载API';
+                result.className = 'result error';
+                return;
+            }
+
+            try {
+                map = new AMap.Map('map', {
+                    zoom: 11,
+                    center: [116.397428, 39.90923]
+                });
+                
+                map.on('complete', function() {
+                    result.innerHTML = `✅ 地图创建成功！
+地图中心: [116.397428, 39.90923]
+缩放级别: 11
+地图状态: 已加载完成`;
+                    result.className = 'result success';
+                });
+
+                map.on('error', function(error) {
+                    result.innerHTML = `❌ 地图加载错误: ${JSON.stringify(error)}`;
+                    result.className = 'result error';
+                });
+
+            } catch (error) {
+                result.innerHTML = `❌ 地图创建失败: ${error.message}
+错误堆栈: ${error.stack}`;
+                result.className = 'result error';
+            }
+        }
+
+        function runFullDiagnostic() {
+            const result = document.getElementById('diagnosticResult');
+            
+            if (!AMap || !map) {
+                result.innerHTML = '❌ 请先创建地图';
+                result.className = 'result error';
+                return;
+            }
+
+            result.innerHTML = '🔄 正在运行完整诊断...';
+            result.className = 'result';
+
+            let diagnosticResults = [];
+            let completedTests = 0;
+            const totalTests = 5;
+
+            function addResult(testName, success, message, details = '') {
+                diagnosticResults.push({
+                    test: testName,
+                    success: success,
+                    message: message,
+                    details: details
+                });
+                completedTests++;
+                
+                if (completedTests === totalTests) {
+                    displayDiagnosticResults();
+                }
+            }
+
+            function displayDiagnosticResults() {
+                const successCount = diagnosticResults.filter(r => r.success).length;
+                let output = `诊断完成 (${successCount}/${totalTests} 成功):\n\n`;
+                
+                diagnosticResults.forEach(r => {
+                    output += `${r.success ? '✅' : '❌'} ${r.test}: ${r.message}\n`;
+                    if (r.details) output += `   详情: ${r.details}\n`;
+                    output += '\n';
+                });
+
+                if (successCount === 0) {
+                    output += `🚨 所有服务都失败，可能的原因：
+1. API密钥权限不足 - 请检查控制台是否开通了相应服务
+2. API密钥配置错误 - 请检查白名单设置
+3. 网络问题 - 请检查是否有广告拦截器
+4. 服务暂时不可用 - 请稍后重试
+
+建议操作：
+1. 登录高德开放平台控制台检查API密钥状态
+2. 确保开通了地理编码、路径规划等服务
+3. 检查白名单是否包含当前域名
+4. 暂时关闭广告拦截器重试`;
+                }
+
+                result.innerHTML = output;
+                result.className = successCount > 0 ? 'result warning' : 'result error';
+            }
+
+            // 测试1: 基础地图功能
+            try {
+                map.setZoom(12);
+                addResult('基础地图功能', true, '地图操作正常');
+            } catch (error) {
+                addResult('基础地图功能', false, '地图操作失败', error.message);
+            }
+
+            // 测试2: 地理编码
+            AMap.plugin('AMap.Geocoder', function() {
+                const geocoder = new AMap.Geocoder();
+                geocoder.getLocation('北京', function(status, geocodeResult) {
+                    if (status === 'complete' && geocodeResult.geocodes && geocodeResult.geocodes.length > 0) {
+                        addResult('地理编码服务', true, '地理编码正常');
+                    } else {
+                        addResult('地理编码服务', false, `地理编码失败: ${status}`, JSON.stringify(geocodeResult));
+                    }
+                });
+            });
+
+            // 测试3: 驾车规划
+            AMap.plugin('AMap.Driving', function() {
+                const driving = new AMap.Driving();
+                const origin = new AMap.LngLat(116.397428, 39.90923);
+                const destination = new AMap.LngLat(116.322287, 39.893729);
+                
+                driving.search(origin, destination, function(status, drivingResult) {
+                    if (status === 'complete' && drivingResult.routes && drivingResult.routes.length > 0) {
+                        addResult('驾车路线规划', true, '驾车规划正常');
+                    } else {
+                        addResult('驾车路线规划', false, `驾车规划失败: ${status}`, JSON.stringify(drivingResult));
+                    }
+                });
+            });
+
+            // 测试4: 步行规划
+            AMap.plugin('AMap.Walking', function() {
+                const walking = new AMap.Walking();
+                const origin = new AMap.LngLat(116.397428, 39.90923);
+                const destination = new AMap.LngLat(116.322287, 39.893729);
+                
+                walking.search(origin, destination, function(status, walkingResult) {
+                    if (status === 'complete' && walkingResult.routes && walkingResult.routes.length > 0) {
+                        addResult('步行路线规划', true, '步行规划正常');
+                    } else {
+                        addResult('步行路线规划', false, `步行规划失败: ${status}`, JSON.stringify(walkingResult));
+                    }
+                });
+            });
+
+            // 测试5: 公交规划
+            AMap.plugin('AMap.Transfer', function() {
+                const transfer = new AMap.Transfer({
+                    city: '北京'
+                });
+                const origin = new AMap.LngLat(116.397428, 39.90923);
+                const destination = new AMap.LngLat(116.322287, 39.893729);
+                
+                transfer.search(origin, destination, function(status, transferResult) {
+                    if (status === 'complete' && transferResult.plans && transferResult.plans.length > 0) {
+                        addResult('公交路线规划', true, '公交规划正常');
+                    } else {
+                        addResult('公交路线规划', false, `公交规划失败: ${status}`, JSON.stringify(transferResult));
+                    }
+                });
+            });
+        }
+
+        function testGeocoder() {
+            const result = document.getElementById('singleTestResult');
+            
+            if (!AMap) {
+                result.innerHTML = '❌ 请先加载API';
+                result.className = 'result error';
+                return;
+            }
+
+            result.innerHTML = '🔄 测试地理编码...';
+            result.className = 'result';
+
+            AMap.plugin('AMap.Geocoder', function() {
+                const geocoder = new AMap.Geocoder();
+                geocoder.getLocation('天安门', function(status, geocodeResult) {
+                    result.innerHTML = `地理编码测试结果:
+状态: ${status}
+完整响应: ${JSON.stringify(geocodeResult, null, 2)}`;
+                    result.className = status === 'complete' ? 'result success' : 'result error';
+                });
+            });
+        }
+
+        function testDriving() {
+            const result = document.getElementById('singleTestResult');
+            
+            if (!AMap) {
+                result.innerHTML = '❌ 请先加载API';
+                result.className = 'result error';
+                return;
+            }
+
+            result.innerHTML = '🔄 测试驾车规划...';
+            result.className = 'result';
+
+            AMap.plugin('AMap.Driving', function() {
+                const driving = new AMap.Driving();
+                const origin = new AMap.LngLat(116.397428, 39.90923);
+                const destination = new AMap.LngLat(116.322287, 39.893729);
+                
+                driving.search(origin, destination, function(status, drivingResult) {
+                    result.innerHTML = `驾车规划测试结果:
+状态: ${status}
+完整响应: ${JSON.stringify(drivingResult, null, 2)}`;
+                    result.className = status === 'complete' ? 'result success' : 'result error';
+                });
+            });
+        }
+
+        function testWalking() {
+            const result = document.getElementById('singleTestResult');
+            
+            if (!AMap) {
+                result.innerHTML = '❌ 请先加载API';
+                result.className = 'result error';
+                return;
+            }
+
+            result.innerHTML = '🔄 测试步行规划...';
+            result.className = 'result';
+
+            AMap.plugin('AMap.Walking', function() {
+                const walking = new AMap.Walking();
+                const origin = new AMap.LngLat(116.397428, 39.90923);
+                const destination = new AMap.LngLat(116.322287, 39.893729);
+                
+                walking.search(origin, destination, function(status, walkingResult) {
+                    result.innerHTML = `步行规划测试结果:
+状态: ${status}
+完整响应: ${JSON.stringify(walkingResult, null, 2)}`;
+                    result.className = status === 'complete' ? 'result success' : 'result error';
+                });
+            });
+        }
+
+        function testTransfer() {
+            const result = document.getElementById('singleTestResult');
+            
+            if (!AMap) {
+                result.innerHTML = '❌ 请先加载API';
+                result.className = 'result error';
+                return;
+            }
+
+            result.innerHTML = '🔄 测试公交规划...';
+            result.className = 'result';
+
+            AMap.plugin('AMap.Transfer', function() {
+                const transfer = new AMap.Transfer({
+                    city: '北京'
+                });
+                const origin = new AMap.LngLat(116.397428, 39.90923);
+                const destination = new AMap.LngLat(116.322287, 39.893729);
+                
+                transfer.search(origin, destination, function(status, transferResult) {
+                    result.innerHTML = `公交规划测试结果:
+状态: ${status}
+完整响应: ${JSON.stringify(transferResult, null, 2)}`;
+                    result.className = status === 'complete' ? 'result success' : 'result error';
+                });
+            });
+        }
+    </script>
+</body>
+</html>

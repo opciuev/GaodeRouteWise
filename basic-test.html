@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>基础API测试</title>
+    <script>
+        window._AMapSecurityConfig = {
+            securityJsCode: "db2b6cf5ae4f82ee233b1abe16aa459a",
+        }
+    </script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 600px; margin: 0 auto; }
+        button { padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .result { background: #f8f9fa; padding: 15px; margin: 10px 0; border-radius: 5px; border-left: 4px solid #007bff; }
+        .success { border-left-color: #28a745; }
+        .error { border-left-color: #dc3545; }
+        .warning { border-left-color: #ffc107; }
+        input { padding: 8px; margin: 5px; border: 1px solid #ddd; border-radius: 4px; width: 300px; }
+        #map { width: 100%; height: 300px; border: 1px solid #ddd; margin: 10px 0; }
+        .info { background: #e7f3ff; padding: 10px; border-radius: 5px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 高德地图API基础测试</h1>
+        
+        <div class="info">
+            <h3>⚠️ 如果遇到 INVALID_USER_SCODE 错误</h3>
+            <p>请检查以下设置：</p>
+            <ol>
+                <li>登录 <a href="https://console.amap.com/" target="_blank">高德开放平台控制台</a></li>
+                <li>确保应用类型为 "Web端(JS API)"</li>
+                <li>在白名单中添加 "localhost:8000" 或设置为 "*"</li>
+                <li>确保开通了地图显示、地理编码等服务</li>
+            </ol>
+        </div>
+
+        <div>
+            <h3>1. 测试API密钥</h3>
+            <input type="password" id="apiKey" placeholder="输入API密钥">
+            <button onclick="testAPI()">测试密钥</button>
+            <div id="apiResult" class="result">请输入API密钥</div>
+        </div>
+
+        <div>
+            <h3>2. 测试地图显示</h3>
+            <button onclick="testMap()">创建地图</button>
+            <div id="map"></div>
+            <div id="mapResult" class="result">请先测试API密钥</div>
+        </div>
+
+        <div>
+            <h3>3. 测试服务权限</h3>
+            <button onclick="testServices()">检查服务权限</button>
+            <div id="serviceResult" class="result">请先创建地图</div>
+        </div>
+    </div>
+
+    <script>
+        let AMap;
+        let map;
+
+        function testAPI() {
+            const key = document.getElementById('apiKey').value.trim();
+            const result = document.getElementById('apiResult');
+            
+            if (!key) {
+                result.innerHTML = '❌ 请输入API密钥';
+                result.className = 'result error';
+                return;
+            }
+
+            result.innerHTML = '🔄 正在测试API密钥...';
+            result.className = 'result';
+
+            // 移除旧脚本
+            const oldScript = document.querySelector('script[src*="webapi.amap.com"]');
+            if (oldScript) oldScript.remove();
+
+            const script = document.createElement('script');
+            script.src = `https://webapi.amap.com/maps?v=1.4.15&key=${key}`;
+            
+            script.onload = () => {
+                if (window.AMap) {
+                    AMap = window.AMap;
+                    result.innerHTML = `✅ API密钥有效！
+可以访问高德地图服务
+密钥: ${key.substring(0, 8)}...`;
+                    result.className = 'result success';
+                } else {
+                    result.innerHTML = '❌ API对象未找到，可能是网络问题';
+                    result.className = 'result error';
+                }
+            };
+            
+            script.onerror = () => {
+                result.innerHTML = `❌ 无法加载API
+可能原因：
+1. API密钥无效
+2. 网络连接问题
+3. 广告拦截器阻止了请求`;
+                result.className = 'result error';
+            };
+            
+            document.head.appendChild(script);
+        }
+
+        function testMap() {
+            const result = document.getElementById('mapResult');
+            
+            if (!AMap) {
+                result.innerHTML = '❌ 请先测试API密钥';
+                result.className = 'result error';
+                return;
+            }
+
+            result.innerHTML = '🔄 正在创建地图...';
+            result.className = 'result';
+
+            try {
+                map = new AMap.Map('map', {
+                    zoom: 11,
+                    center: [116.397428, 39.90923], // 天安门坐标
+                    mapStyle: 'amap://styles/normal'
+                });
+
+                // 监听地图加载完成事件
+                map.on('complete', function() {
+                    result.innerHTML = `✅ 地图创建成功！
+中心点: 天安门 (116.397428, 39.90923)
+缩放级别: 11
+地图样式: 标准样式`;
+                    result.className = 'result success';
+                });
+
+                // 监听地图加载错误事件
+                map.on('error', function(error) {
+                    result.innerHTML = `❌ 地图加载失败: ${error.message}`;
+                    result.className = 'result error';
+                });
+
+            } catch (error) {
+                result.innerHTML = `❌ 地图创建失败: ${error.message}
+可能原因：
+1. API密钥权限不足
+2. 服务未开通
+3. 网络连接问题`;
+                result.className = 'result error';
+            }
+        }
+
+        function testServices() {
+            const result = document.getElementById('serviceResult');
+            
+            if (!AMap || !map) {
+                result.innerHTML = '❌ 请先创建地图';
+                result.className = 'result error';
+                return;
+            }
+
+            result.innerHTML = '🔄 正在检查服务权限...';
+            result.className = 'result';
+
+            let testResults = [];
+            let completedTests = 0;
+            const totalTests = 4;
+
+            function checkTestCompletion() {
+                completedTests++;
+                if (completedTests === totalTests) {
+                    const successCount = testResults.filter(r => r.success).length;
+                    const resultClass = successCount === totalTests ? 'success' : 
+                                       successCount > 0 ? 'warning' : 'error';
+                    
+                    result.innerHTML = `服务权限检查完成 (${successCount}/${totalTests}):
+
+${testResults.map(r => r.message).join('\n')}
+
+${successCount < totalTests ? `
+⚠️ 部分服务不可用，请检查：
+1. API密钥是否开通了相应服务
+2. 白名单设置是否正确
+3. 是否有广告拦截器干扰` : '🎉 所有基础服务都可用！'}`;
+                    result.className = `result ${resultClass}`;
+                }
+            }
+
+            // 测试1: 地图控件
+            try {
+                map.addControl(new AMap.Scale());
+                testResults.push({success: true, message: '✅ 地图控件服务正常'});
+            } catch (error) {
+                testResults.push({success: false, message: `❌ 地图控件服务失败: ${error.message}`});
+            }
+            checkTestCompletion();
+
+            // 测试2: 城市搜索（IP定位）
+            AMap.plugin('AMap.CitySearch', function() {
+                const citySearch = new AMap.CitySearch();
+                citySearch.getLocalCity(function(status, cityResult) {
+                    if (status === 'complete' && cityResult.info === 'OK') {
+                        testResults.push({success: true, message: `✅ 城市搜索服务正常 (当前城市: ${cityResult.city})`});
+                    } else {
+                        testResults.push({success: false, message: `❌ 城市搜索服务失败: ${status}`});
+                    }
+                    checkTestCompletion();
+                });
+            });
+
+            // 测试3: 地理编码
+            AMap.plugin('AMap.Geocoder', function() {
+                const geocoder = new AMap.Geocoder();
+                geocoder.getLocation('北京', function(status, geocodeResult) {
+                    if (status === 'complete' && geocodeResult.geocodes && geocodeResult.geocodes.length > 0) {
+                        testResults.push({success: true, message: '✅ 地理编码服务正常'});
+                    } else {
+                        testResults.push({success: false, message: `❌ 地理编码服务失败: ${status}`});
+                    }
+                    checkTestCompletion();
+                });
+            });
+
+            // 测试4: 定位服务
+            AMap.plugin('AMap.Geolocation', function() {
+                const geolocation = new AMap.Geolocation({
+                    enableHighAccuracy: false,
+                    timeout: 5000
+                });
+                
+                geolocation.getCurrentPosition(function(status, geoResult) {
+                    if (status === 'complete') {
+                        testResults.push({success: true, message: '✅ 定位服务正常'});
+                    } else {
+                        testResults.push({success: false, message: `❌ 定位服务失败: ${status} (这可能是正常的，取决于设备和权限)`});
+                    }
+                    checkTestCompletion();
+                });
+            });
+        }
+    </script>
+</body>
+</html>

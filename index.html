@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>旅游路线规划助手</title>
+    <link rel="stylesheet" href="style.css?v=20250812-9">
+    <style>
+        /* 高端交通方式选择器样式 */
+        .transport-section {
+            margin: 25px 0;
+        }
+
+        .section-title {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .title-icon {
+            font-size: 2em;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .section-title span:nth-child(2) {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 4px;
+        }
+
+        .title-subtitle {
+            font-size: 0.9em;
+            color: #666;
+            font-weight: normal;
+        }
+
+        .transport-cards {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .transport-card {
+            position: relative;
+            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+            border: 2px solid #e1e5e9;
+            border-radius: 16px;
+            padding: 20px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .transport-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.2);
+            border-color: #667eea;
+        }
+
+        .transport-card.selected {
+            border-color: #667eea;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+        }
+
+        .card-icon {
+            font-size: 2.5em;
+            text-align: center;
+            margin-bottom: 12px;
+        }
+
+        .card-title {
+            font-size: 1.1em;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 8px;
+        }
+
+        .card-desc {
+            font-size: 0.85em;
+            text-align: center;
+            opacity: 0.8;
+            margin-bottom: 12px;
+            line-height: 1.4;
+        }
+
+        .card-features {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .feature {
+            background: rgba(102, 126, 234, 0.1);
+            color: #667eea;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.75em;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .transport-card.selected .feature {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+        }
+    </style>
+    <script>
+        window._AMapSecurityConfig = {
+            securityJsCode: "db2b6cf5ae4f82ee233b1abe16aa459a",
+        }
+    </script>
+    <!-- 高德地图API将动态加载 -->
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🗺️ 旅游路线规划助手</h1>
+            <p>使用高德地图API查询最佳出行方案</p>
+        </header>
+
+        <!-- API密钥设置面板 -->
+        <div id="api-setup" class="api-setup">
+            <div class="api-setup-content">
+                <h2>🔑 设置高德地图API密钥</h2>
+                <p>请输入你的高德地图API密钥以开始使用路线规划功能</p>
+
+                <div class="input-group">
+                    <label for="api-key-input">API密钥：</label>
+                    <input type="password" id="api-key-input" placeholder="请输入高德地图API密钥">
+                    <button type="button" id="toggle-api-visibility" class="toggle-btn">👁️</button>
+                </div>
+
+                <div class="api-actions">
+                    <button id="save-api-key" class="save-button">💾 保存并开始使用</button>
+                    <button id="get-api-help" class="help-button">❓ 如何获取API密钥</button>
+                    <button id="clear-cache" class="help-button" onclick="clearCache()">🗑️ 清除缓存</button>
+                    <button id="troubleshooting" class="help-button" onclick="window.open('troubleshooting.md', '_blank')">🔧 故障排除</button>
+                </div>
+
+                <div id="api-help" class="api-help" style="display: none;">
+                    <h3>📋 获取API密钥步骤：</h3>
+                    <ol>
+                        <li>访问 <a href="https://lbs.amap.com/" target="_blank">高德开放平台</a></li>
+                        <li>注册并登录账号</li>
+                        <li>进入控制台，创建新应用</li>
+                        <li>选择"Web端(JS API)"平台</li>
+                        <li>复制生成的API Key</li>
+                    </ol>
+                    <p><strong>注意：</strong>个人开发者每日免费调用5000次</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="main-content" id="main-app" style="display: none;">
+            <!-- 搜索面板 -->
+            <div class="search-panel">
+                <div class="input-group">
+                    <label for="origin">出发地：</label>
+                    <div class="input-with-location">
+                        <input type="text" id="origin" placeholder="请输入出发地址">
+                        <div class="location-options">
+                            <button type="button" id="use-current-location" class="location-btn" title="使用当前位置">
+                                📍 当前位置
+                            </button>
+                            <button type="button" id="use-ip-location" class="location-btn" title="使用IP定位">
+                                🌐 IP定位
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="input-group">
+                    <label for="destination">目的地：</label>
+                    <input type="text" id="destination" placeholder="请输入目的地址">
+                </div>
+
+                <div class="transport-section">
+                    <h3 class="section-title">
+                        <span class="title-icon">�</span>
+                        <span>选择出行方式</span>
+                        <span class="title-subtitle">多种方案，智能对比</span>
+                    </h3>
+                    <div class="transport-cards">
+                        <div class="transport-card" data-mode="driving">
+                            <input type="checkbox" id="driving" checked hidden>
+                            <div class="card-icon">🚗</div>
+                            <div class="card-title">驾车出行</div>
+                            <div class="card-desc">快速便捷，实时路况</div>
+                            <div class="card-features">
+                                <span class="feature">导航</span>
+                                <span class="feature">避堵</span>
+                            </div>
+                        </div>
+
+                        <div class="transport-card" data-mode="transit">
+                            <input type="checkbox" id="transit" checked hidden>
+                            <div class="card-icon">🚌</div>
+                            <div class="card-title">公共交通</div>
+                            <div class="card-desc">经济环保，换乘便利</div>
+                            <div class="card-features">
+                                <span class="feature">地铁</span>
+                                <span class="feature">公交</span>
+                            </div>
+                        </div>
+
+                        <div class="transport-card" data-mode="walking">
+                            <input type="checkbox" id="walking" checked hidden>
+                            <div class="card-icon">🚶</div>
+                            <div class="card-title">步行漫游</div>
+                            <div class="card-desc">健康出行，沿途风景</div>
+                            <div class="card-features">
+                                <span class="feature">健康</span>
+                                <span class="feature">观光</span>
+                            </div>
+                        </div>
+
+                        <div class="transport-card" data-mode="riding">
+                            <input type="checkbox" id="riding" checked hidden>
+                            <div class="card-icon">🚴</div>
+                            <div class="card-title">骑行探索</div>
+                            <div class="card-desc">自由灵活，绿色出行</div>
+                            <div class="card-features">
+                                <span class="feature">环保</span>
+                                <span class="feature">自由</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <button id="search-btn" class="search-button">🔍 搜索路线</button>
+
+                <div class="api-management">
+                    <button id="change-api-key" class="change-api-button">🔧 更换API密钥</button>
+                    <button onclick="clearCache()" class="change-api-button" style="background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); margin-top: 5px;">🗑️ 清除缓存</button>
+                </div>
+            </div>
+
+            <!-- 地图容器 -->
+            <div class="map-section">
+                <div id="map-container" style="width: 100%; height: 500px; border: 2px solid #ddd; border-radius: 8px; background: #f0f0f0;"></div>
+                <div class="map-controls">
+                    <button class="map-control-btn" onclick="centerMap()">🎯 居中显示</button>
+                    <button class="map-control-btn" onclick="clearRoutes()">🗑️ 清除路线</button>
+                </div>
+            </div>
+
+            <!-- 结果面板 -->
+            <div class="results-panel">
+                <h3>路线方案</h3>
+                <div id="results-list">
+                    <p class="no-results">请输入出发地和目的地，然后点击搜索</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js?v=20250812-9"></script>
+</body>
+</html>

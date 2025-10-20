@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>简化版旅游路线规划助手</title>
+    <script>
+        window._AMapSecurityConfig = {
+            securityJsCode: "db2b6cf5ae4f82ee233b1abe16aa459a",
+        }
+    </script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; }
+        .header { text-align: center; margin-bottom: 30px; }
+        .api-setup { background: #e7f3ff; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+        .main-content { display: grid; grid-template-columns: 300px 1fr 350px; gap: 20px; }
+        .panel { background: #f8f9fa; padding: 20px; border-radius: 8px; }
+        input, select, button { padding: 10px; margin: 5px; border: 1px solid #ddd; border-radius: 4px; }
+        button { background: #007bff; color: white; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        #map { width: 100%; height: 500px; border: 1px solid #ddd; }
+        .location-btn { background: #28a745; font-size: 12px; padding: 5px 10px; }
+        .result-item { background: white; padding: 15px; margin: 10px 0; border-radius: 5px; border-left: 4px solid #007bff; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🗺️ 旅游路线规划助手</h1>
+            <p>智能规划你的出行路线</p>
+        </div>
+
+        <!-- API设置 -->
+        <div id="api-setup" class="api-setup">
+            <h3>🔑 设置API密钥</h3>
+            <input type="password" id="api-key" placeholder="输入高德地图API密钥" style="width: 300px;">
+            <button onclick="loadAPI()">加载地图</button>
+            <button onclick="clearCache()" style="background: #dc3545;">🗑️ 清除缓存</button>
+            <div id="api-status">请输入API密钥</div>
+        </div>
+
+        <!-- 主界面 -->
+        <div id="main-content" class="main-content" style="display: none;">
+            <!-- 左侧控制面板 -->
+            <div class="panel">
+                <h3>📍 路线设置</h3>
+                
+                <div style="margin-bottom: 15px;">
+                    <label>出发地：</label><br>
+                    <input type="text" id="origin" placeholder="输入出发地址" style="width: 100%;">
+                    <button class="location-btn" onclick="getCurrentLocation()">📍 当前位置</button>
+                    <button class="location-btn" onclick="getIPLocation()">🌐 IP定位</button>
+                </div>
+
+                <div style="margin-bottom: 15px;">
+                    <label>目的地：</label><br>
+                    <input type="text" id="destination" placeholder="输入目的地址" style="width: 100%;">
+                </div>
+
+                <div style="margin-bottom: 15px;">
+                    <label>交通方式：</label><br>
+                    <select id="transport-mode" style="width: 100%;">
+                        <option value="all">全部方案</option>
+                        <option value="driving">🚗 驾车</option>
+                        <option value="walking">🚶 步行</option>
+                        <option value="transit">🚌 公交</option>
+                        <option value="riding">🚴 骑行</option>
+                    </select>
+                </div>
+
+                <button onclick="planRoute()" style="width: 100%; padding: 15px; font-size: 16px;">🗺️ 开始规划路线</button>
+
+                <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #ddd;">
+                    <h4>🔧 工具</h4>
+                    <button onclick="clearCache()" style="width: 100%; background: #dc3545;">🗑️ 清除缓存</button>
+                    <button onclick="reloadPage()" style="width: 100%; background: #28a745; margin-top: 5px;">🔄 重新加载</button>
+                </div>
+            </div>
+
+            <!-- 中间地图 -->
+            <div class="panel">
+                <div id="map"></div>
+            </div>
+
+            <!-- 右侧结果 -->
+            <div class="panel">
+                <h3>📊 路线方案</h3>
+                <div id="results">
+                    <p style="text-align: center; color: #666; padding: 40px;">
+                        设置出发地和目的地，开始规划路线
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let map;
+        let AMap;
+
+        function loadAPI() {
+            const key = document.getElementById('api-key').value.trim();
+            const status = document.getElementById('api-status');
+            
+            if (!key) {
+                status.innerHTML = '❌ 请输入API密钥';
+                return;
+            }
+
+            status.innerHTML = '🔄 正在加载...';
+
+            // 移除旧脚本
+            const oldScript = document.querySelector('script[src*="webapi.amap.com"]');
+            if (oldScript) oldScript.remove();
+            if (window.AMap) delete window.AMap;
+
+            const script = document.createElement('script');
+            script.src = `https://webapi.amap.com/maps?v=1.4.15&key=${key}`;
+            
+            script.onload = () => {
+                if (window.AMap) {
+                    AMap = window.AMap;
+                    initMap();
+                    document.getElementById('api-setup').style.display = 'none';
+                    document.getElementById('main-content').style.display = 'grid';
+                    status.innerHTML = '✅ 地图加载成功';
+                } else {
+                    status.innerHTML = '❌ API对象未找到';
+                }
+            };
+            
+            script.onerror = () => {
+                status.innerHTML = '❌ API加载失败，请检查密钥';
+            };
+            
+            document.head.appendChild(script);
+        }
+
+        function initMap() {
+            try {
+                map = new AMap.Map('map', {
+                    zoom: 11,
+                    center: [116.397428, 39.90923]
+                });
+                console.log('✅ 地图创建成功');
+            } catch (error) {
+                console.error('❌ 地图创建失败:', error);
+                document.getElementById('api-status').innerHTML = '❌ 地图创建失败: ' + error.message;
+            }
+        }
+
+        function getCurrentLocation() {
+            if (!AMap) {
+                alert('请先加载地图');
+                return;
+            }
+
+            AMap.plugin('AMap.Geolocation', function() {
+                const geolocation = new AMap.Geolocation({
+                    enableHighAccuracy: true,
+                    timeout: 10000
+                });
+
+                geolocation.getCurrentPosition(function(status, result) {
+                    if (status === 'complete') {
+                        const address = result.formattedAddress || `${result.position.lng}, ${result.position.lat}`;
+                        document.getElementById('origin').value = address;
+                        
+                        if (map && result.position) {
+                            map.setCenter([result.position.lng, result.position.lat]);
+                            map.setZoom(15);
+                        }
+                        alert('✅ 定位成功');
+                    } else {
+                        alert('❌ 定位失败');
+                    }
+                });
+            });
+        }
+
+        function getIPLocation() {
+            if (!AMap) {
+                alert('请先加载地图');
+                return;
+            }
+
+            AMap.plugin('AMap.CitySearch', function() {
+                const citySearch = new AMap.CitySearch();
+                citySearch.getLocalCity(function(status, result) {
+                    if (status === 'complete' && result.info === 'OK') {
+                        document.getElementById('origin').value = result.city;
+                        alert('✅ IP定位成功: ' + result.city);
+                    } else {
+                        alert('❌ IP定位失败');
+                    }
+                });
+            });
+        }
+
+        function planRoute() {
+            const origin = document.getElementById('origin').value.trim();
+            const destination = document.getElementById('destination').value.trim();
+            const mode = document.getElementById('transport-mode').value;
+
+            if (!origin || !destination) {
+                alert('请输入出发地和目的地');
+                return;
+            }
+
+            if (!AMap) {
+                alert('请先加载地图');
+                return;
+            }
+
+            const results = document.getElementById('results');
+            results.innerHTML = '🔄 正在规划路线...';
+
+            // 简化版路线规划 - 只测试驾车
+            AMap.plugin('AMap.Driving', function() {
+                const driving = new AMap.Driving({
+                    map: map
+                });
+
+                driving.search([
+                    {keyword: origin, city: '北京'},
+                    {keyword: destination, city: '北京'}
+                ], function(status, result) {
+                    if (status === 'complete' && result.routes && result.routes.length > 0) {
+                        const route = result.routes[0];
+                        results.innerHTML = `
+                            <div class="result-item">
+                                <h4>🚗 驾车路线</h4>
+                                <p>距离: ${(route.distance / 1000).toFixed(1)}公里</p>
+                                <p>时间: ${Math.round(route.time / 60)}分钟</p>
+                                <p>费用: ¥${route.tolls || 0}</p>
+                            </div>
+                        `;
+                    } else {
+                        results.innerHTML = '❌ 路线规划失败，请检查地址是否正确';
+                    }
+                });
+            });
+        }
+
+        // 清除缓存功能
+        function clearCache() {
+            if (confirm('确定要清除缓存吗？这将刷新页面并清除所有缓存数据。')) {
+                try {
+                    // 清除各种缓存
+                    if ('caches' in window) {
+                        caches.keys().then(function(names) {
+                            names.forEach(function(name) {
+                                caches.delete(name);
+                            });
+                        });
+                    }
+
+                    // 清除本地存储
+                    if (typeof(Storage) !== "undefined") {
+                        localStorage.clear();
+                        sessionStorage.clear();
+                    }
+
+                    // 清除所有cookie
+                    document.cookie.split(";").forEach(function(c) {
+                        document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+                    });
+
+                    // 显示成功消息
+                    alert('✅ 缓存已清除！页面将重新加载。');
+
+                    // 强制重新加载页面（绕过缓存）
+                    window.location.reload(true);
+
+                } catch (error) {
+                    console.error('清除缓存时出错:', error);
+                    alert('⚠️ 部分缓存可能未清除，请手动刷新页面 (Ctrl+F5)');
+                }
+            }
+        }
+
+        // 重新加载页面
+        function reloadPage() {
+            if (confirm('确定要重新加载页面吗？')) {
+                // 强制重新加载（绕过缓存）
+                window.location.reload(true);
+            }
+        }
+
+        // 页面加载时显示缓存状态
+        window.addEventListener('load', function() {
+            console.log('📊 页面加载完成');
+            console.log('🔍 缓存状态检查:');
+            console.log('- localStorage 项目数:', localStorage.length);
+            console.log('- sessionStorage 项目数:', sessionStorage.length);
+            console.log('- 支持 Service Worker:', 'serviceWorker' in navigator);
+            console.log('- 支持 Cache API:', 'caches' in window);
+        });
+    </script>
+</body>
+</html>

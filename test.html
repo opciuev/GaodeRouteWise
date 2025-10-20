@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>高德地图API测试</title>
+    <script>
+        window._AMapSecurityConfig = {
+            securityJsCode: "db2b6cf5ae4f82ee233b1abe16aa459a",
+        }
+    </script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .test-section h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .result {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .success { border-left: 4px solid #28a745; }
+        .error { border-left: 4px solid #dc3545; }
+        input {
+            padding: 8px;
+            margin: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 200px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 高德地图API功能测试</h1>
+        <p>这个页面用于测试高德地图API的各项功能是否正常工作。</p>
+
+        <!-- API密钥设置 -->
+        <div class="test-section">
+            <h3>🔑 API密钥设置</h3>
+            <input type="password" id="api-key" placeholder="输入高德地图API密钥">
+            <button onclick="loadAPI()">加载API</button>
+            <div id="api-result" class="result"></div>
+        </div>
+
+        <!-- 地图初始化测试 -->
+        <div class="test-section">
+            <h3>🗺️ 地图初始化测试</h3>
+            <button onclick="testMapInit()">初始化地图</button>
+            <div id="map-container" style="width: 100%; height: 300px; margin-top: 10px; border: 1px solid #ddd;"></div>
+            <div id="map-result" class="result"></div>
+        </div>
+
+        <!-- 定位功能测试 -->
+        <div class="test-section">
+            <h3>📍 定位功能测试</h3>
+            <button onclick="testGeolocation()">浏览器定位</button>
+            <button onclick="testIPLocation()">IP定位</button>
+            <div id="location-result" class="result"></div>
+        </div>
+
+        <!-- 地理编码测试 -->
+        <div class="test-section">
+            <h3>🔍 地理编码测试</h3>
+            <input type="text" id="address-input" placeholder="输入地址，如：北京天安门" value="北京天安门">
+            <button onclick="testGeocode()">地址解析</button>
+            <div id="geocode-result" class="result"></div>
+        </div>
+
+        <!-- 路线规划测试 -->
+        <div class="test-section">
+            <h3>🚗 路线规划测试</h3>
+            <input type="text" id="origin-test" placeholder="起点" value="北京天安门">
+            <input type="text" id="destination-test" placeholder="终点" value="北京西站">
+            <button onclick="testDriving()">驾车路线</button>
+            <button onclick="testWalking()">步行路线</button>
+            <div id="route-result" class="result"></div>
+        </div>
+    </div>
+
+    <script>
+        let map;
+        let AMap;
+
+        // 加载高德地图API
+        function loadAPI() {
+            const apiKey = document.getElementById('api-key').value.trim();
+            const resultDiv = document.getElementById('api-result');
+            
+            if (!apiKey) {
+                resultDiv.innerHTML = '❌ 请输入API密钥';
+                resultDiv.className = 'result error';
+                return;
+            }
+
+            resultDiv.innerHTML = '🔄 正在加载API...';
+            resultDiv.className = 'result';
+
+            // 移除已存在的脚本
+            const existingScript = document.querySelector('script[src*="webapi.amap.com"]');
+            if (existingScript) {
+                existingScript.remove();
+            }
+
+            const script = document.createElement('script');
+            script.src = `https://webapi.amap.com/maps?v=1.4.15&key=${apiKey}`;
+            
+            script.onload = function() {
+                if (window.AMap) {
+                    AMap = window.AMap;
+                    resultDiv.innerHTML = '✅ API加载成功！\n高德地图JS API 1.4已就绪';
+                    resultDiv.className = 'result success';
+                } else {
+                    resultDiv.innerHTML = '❌ API加载失败';
+                    resultDiv.className = 'result error';
+                }
+            };
+            
+            script.onerror = function() {
+                resultDiv.innerHTML = '❌ API加载失败，请检查网络连接和API密钥';
+                resultDiv.className = 'result error';
+            };
+            
+            document.head.appendChild(script);
+        }
+
+        // 测试地图初始化
+        function testMapInit() {
+            const resultDiv = document.getElementById('map-result');
+            
+            if (!AMap) {
+                resultDiv.innerHTML = '❌ 请先加载API';
+                resultDiv.className = 'result error';
+                return;
+            }
+
+            try {
+                map = new AMap.Map('map-container', {
+                    zoom: 11,
+                    center: [116.397428, 39.90923],
+                    mapStyle: 'amap://styles/normal'
+                });
+
+                resultDiv.innerHTML = '✅ 地图初始化成功！\n中心点: 北京天安门\n缩放级别: 11';
+                resultDiv.className = 'result success';
+            } catch (error) {
+                resultDiv.innerHTML = '❌ 地图初始化失败: ' + error.message;
+                resultDiv.className = 'result error';
+            }
+        }
+
+        // 测试浏览器定位
+        function testGeolocation() {
+            const resultDiv = document.getElementById('location-result');
+
+            if (!AMap) {
+                resultDiv.innerHTML = '❌ 请先加载API';
+                resultDiv.className = 'result error';
+                return;
+            }
+
+            resultDiv.innerHTML = '🔄 正在获取位置...\n提示：请允许浏览器访问位置权限';
+            resultDiv.className = 'result';
+
+            AMap.plugin('AMap.Geolocation', function() {
+                const geolocation = new AMap.Geolocation({
+                    enableHighAccuracy: true,
+                    timeout: 15000,
+                    maximumAge: 0,
+                    convert: true,
+                    showButton: false,
+                    showMarker: false,
+                    showCircle: false
+                });
+
+                geolocation.getCurrentPosition(function(status, result) {
+                    if (status === 'complete') {
+                        const address = result.formattedAddress || '地址解析中...';
+                        const lng = result.position ? result.position.lng : '未知';
+                        const lat = result.position ? result.position.lat : '未知';
+                        const accuracy = result.accuracy || '未知';
+
+                        resultDiv.innerHTML = `✅ 浏览器定位成功！
+位置: ${address}
+坐标: ${lng}, ${lat}
+精度: ${accuracy}米
+定位方式: ${result.location_type || 'GPS'}`;
+                        resultDiv.className = 'result success';
+                    } else {
+                        let errorMsg = '未知错误';
+                        if (result && result.message) {
+                            errorMsg = result.message;
+                        } else if (result && result.info) {
+                            errorMsg = result.info;
+                        }
+
+                        resultDiv.innerHTML = `❌ 浏览器定位失败
+错误信息: ${errorMsg}
+可能原因:
+1. 用户拒绝了位置权限
+2. 设备不支持定位
+3. 网络连接问题
+4. 广告拦截器阻止了请求
+
+解决方案:
+1. 检查浏览器地址栏是否有位置权限提示
+2. 在浏览器设置中允许此网站访问位置
+3. 暂时关闭广告拦截器
+4. 尝试使用HTTPS协议`;
+                        resultDiv.className = 'result error';
+                    }
+                });
+            });
+        }
+
+        // 测试IP定位
+        function testIPLocation() {
+            const resultDiv = document.getElementById('location-result');
+
+            if (!AMap) {
+                resultDiv.innerHTML = '❌ 请先加载API';
+                resultDiv.className = 'result error';
+                return;
+            }
+
+            resultDiv.innerHTML = '🔄 正在获取IP位置...';
+            resultDiv.className = 'result';
+
+            AMap.plugin('AMap.CitySearch', function() {
+                const citySearch = new AMap.CitySearch();
+
+                citySearch.getLocalCity(function(status, result) {
+                    if (status === 'complete' && result.info === 'OK') {
+                        resultDiv.innerHTML = `✅ IP定位成功！
+城市: ${result.city || '未知'}
+省份: ${result.province || '未知'}
+城市编码: ${result.adcode || '未知'}
+坐标范围: ${result.rectangle || '未知'}`;
+                        resultDiv.className = 'result success';
+                    } else {
+                        resultDiv.innerHTML = `❌ IP定位失败
+状态: ${status}
+错误信息: ${result ? result.info || result.message || '未知错误' : '无响应'}
+
+可能原因:
+1. 广告拦截器阻止了请求
+2. 网络连接问题
+3. API服务暂时不可用
+
+解决方案:
+1. 暂时关闭广告拦截器
+2. 检查网络连接
+3. 稍后重试`;
+                        resultDiv.className = 'result error';
+                    }
+                });
+            });
+        }
+
+        // 测试地理编码
+        function testGeocode() {
+            const address = document.getElementById('address-input').value.trim();
+            const resultDiv = document.getElementById('geocode-result');
+            
+            if (!AMap) {
+                resultDiv.innerHTML = '❌ 请先加载API';
+                resultDiv.className = 'result error';
+                return;
+            }
+
+            if (!address) {
+                resultDiv.innerHTML = '❌ 请输入地址';
+                resultDiv.className = 'result error';
+                return;
+            }
+
+            resultDiv.innerHTML = '🔄 正在解析地址...';
+            resultDiv.className = 'result';
+
+            AMap.plugin('AMap.Geocoder', function() {
+                const geocoder = new AMap.Geocoder();
+                
+                geocoder.getLocation(address, function(status, result) {
+                    if (status === 'complete' && result.geocodes.length) {
+                        const location = result.geocodes[0];
+                        resultDiv.innerHTML = `✅ 地址解析成功！
+地址: ${location.formattedAddress}
+坐标: ${location.location.lng}, ${location.location.lat}
+级别: ${location.level}`;
+                        resultDiv.className = 'result success';
+                    } else {
+                        resultDiv.innerHTML = `❌ 地址解析失败`;
+                        resultDiv.className = 'result error';
+                    }
+                });
+            });
+        }
+
+        // 测试驾车路线
+        function testDriving() {
+            const origin = document.getElementById('origin-test').value.trim();
+            const destination = document.getElementById('destination-test').value.trim();
+            const resultDiv = document.getElementById('route-result');
+            
+            if (!AMap) {
+                resultDiv.innerHTML = '❌ 请先加载API';
+                resultDiv.className = 'result error';
+                return;
+            }
+
+            if (!origin || !destination) {
+                resultDiv.innerHTML = '❌ 请输入起点和终点';
+                resultDiv.className = 'result error';
+                return;
+            }
+
+            resultDiv.innerHTML = '🔄 正在规划驾车路线...';
+            resultDiv.className = 'result';
+
+            AMap.plugin('AMap.Driving', function() {
+                const driving = new AMap.Driving();
+                
+                driving.search([{keyword: origin}, {keyword: destination}], function(status, result) {
+                    if (status === 'complete') {
+                        const route = result.routes[0];
+                        resultDiv.innerHTML = `✅ 驾车路线规划成功！
+距离: ${(route.distance / 1000).toFixed(1)}公里
+时间: ${Math.round(route.time / 60)}分钟
+过路费: ¥${route.tolls || 0}`;
+                        resultDiv.className = 'result success';
+                    } else {
+                        resultDiv.innerHTML = `❌ 驾车路线规划失败`;
+                        resultDiv.className = 'result error';
+                    }
+                });
+            });
+        }
+
+        // 测试步行路线
+        function testWalking() {
+            const origin = document.getElementById('origin-test').value.trim();
+            const destination = document.getElementById('destination-test').value.trim();
+            const resultDiv = document.getElementById('route-result');
+            
+            if (!AMap) {
+                resultDiv.innerHTML = '❌ 请先加载API';
+                resultDiv.className = 'result error';
+                return;
+            }
+
+            if (!origin || !destination) {
+                resultDiv.innerHTML = '❌ 请输入起点和终点';
+                resultDiv.className = 'result error';
+                return;
+            }
+
+            resultDiv.innerHTML = '🔄 正在规划步行路线...';
+            resultDiv.className = 'result';
+
+            AMap.plugin('AMap.Walking', function() {
+                const walking = new AMap.Walking();
+                
+                walking.search([{keyword: origin}, {keyword: destination}], function(status, result) {
+                    if (status === 'complete') {
+                        const route = result.routes[0];
+                        resultDiv.innerHTML = `✅ 步行路线规划成功！
+距离: ${(route.distance / 1000).toFixed(1)}公里
+时间: ${Math.round(route.time / 60)}分钟`;
+                        resultDiv.className = 'result success';
+                    } else {
+                        resultDiv.innerHTML = `❌ 步行路线规划失败`;
+                        resultDiv.className = 'result error';
+                    }
+                });
+            });
+        }
+    </script>
+</body>
+</html>

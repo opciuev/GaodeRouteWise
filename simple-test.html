@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>简单API测试</title>
+    <script>
+        window._AMapSecurityConfig = {
+            securityJsCode: "db2b6cf5ae4f82ee233b1abe16aa459a",
+        }
+    </script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 600px; margin: 0 auto; }
+        button { padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .result { background: #f8f9fa; padding: 15px; margin: 10px 0; border-radius: 5px; border-left: 4px solid #007bff; }
+        .success { border-left-color: #28a745; }
+        .error { border-left-color: #dc3545; }
+        input { padding: 8px; margin: 5px; border: 1px solid #ddd; border-radius: 4px; width: 300px; }
+        #map { width: 100%; height: 300px; border: 1px solid #ddd; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 高德地图API简单测试</h1>
+        
+        <div>
+            <h3>1. 设置API密钥</h3>
+            <input type="password" id="apiKey" placeholder="输入API密钥">
+            <button onclick="loadAPI()">加载API</button>
+            <div id="apiResult" class="result">请先输入API密钥并点击加载</div>
+        </div>
+
+        <div>
+            <h3>2. 测试地图</h3>
+            <button onclick="testMap()">创建地图</button>
+            <div id="map"></div>
+            <div id="mapResult" class="result">请先加载API</div>
+        </div>
+
+        <div>
+            <h3>3. 测试定位</h3>
+            <button onclick="testLocation()">获取位置</button>
+            <div id="locationResult" class="result">请先加载API</div>
+        </div>
+
+        <div>
+            <h3>4. 测试路线规划</h3>
+            <input type="text" id="origin" placeholder="起点" value="北京市东城区天安门广场">
+            <input type="text" id="destination" placeholder="终点" value="北京市西城区北京西站">
+            <button onclick="testRoute()">规划路线</button>
+            <div id="routeResult" class="result">请先加载API</div>
+        </div>
+    </div>
+
+    <script>
+        let AMap;
+        let map;
+
+        function loadAPI() {
+            const key = document.getElementById('apiKey').value.trim();
+            const result = document.getElementById('apiResult');
+            
+            if (!key) {
+                result.innerHTML = '❌ 请输入API密钥';
+                result.className = 'result error';
+                return;
+            }
+
+            result.innerHTML = '🔄 正在加载...';
+            result.className = 'result';
+
+            // 移除旧脚本
+            const old = document.querySelector('script[src*="webapi.amap.com"]');
+            if (old) old.remove();
+
+            const script = document.createElement('script');
+            script.src = `https://webapi.amap.com/maps?v=1.4.15&key=${key}`;
+            
+            script.onload = () => {
+                if (window.AMap) {
+                    AMap = window.AMap;
+                    result.innerHTML = '✅ API加载成功！现在可以测试其他功能了';
+                    result.className = 'result success';
+                } else {
+                    result.innerHTML = '❌ API对象未找到';
+                    result.className = 'result error';
+                }
+            };
+            
+            script.onerror = () => {
+                result.innerHTML = '❌ 网络错误，无法加载API';
+                result.className = 'result error';
+            };
+            
+            document.head.appendChild(script);
+        }
+
+        function testMap() {
+            const result = document.getElementById('mapResult');
+            
+            if (!AMap) {
+                result.innerHTML = '❌ 请先加载API';
+                result.className = 'result error';
+                return;
+            }
+
+            try {
+                map = new AMap.Map('map', {
+                    zoom: 11,
+                    center: [116.397428, 39.90923]
+                });
+                
+                result.innerHTML = '✅ 地图创建成功！';
+                result.className = 'result success';
+            } catch (error) {
+                result.innerHTML = '❌ 地图创建失败: ' + error.message;
+                result.className = 'result error';
+            }
+        }
+
+        function testLocation() {
+            const result = document.getElementById('locationResult');
+            
+            if (!AMap) {
+                result.innerHTML = '❌ 请先加载API';
+                result.className = 'result error';
+                return;
+            }
+
+            result.innerHTML = '🔄 正在定位...（请允许位置权限）';
+            result.className = 'result';
+
+            // 先尝试IP定位（更稳定）
+            AMap.plugin('AMap.CitySearch', function() {
+                const citySearch = new AMap.CitySearch();
+                citySearch.getLocalCity(function(status, cityResult) {
+                    if (status === 'complete' && cityResult.info === 'OK') {
+                        result.innerHTML = `✅ IP定位成功！
+城市: ${cityResult.city}
+省份: ${cityResult.province}`;
+                        result.className = 'result success';
+                    } else {
+                        // IP定位失败，尝试GPS定位
+                        AMap.plugin('AMap.Geolocation', function() {
+                            const geo = new AMap.Geolocation({
+                                enableHighAccuracy: false,
+                                timeout: 10000
+                            });
+                            
+                            geo.getCurrentPosition(function(geoStatus, geoResult) {
+                                if (geoStatus === 'complete') {
+                                    result.innerHTML = `✅ GPS定位成功！
+地址: ${geoResult.formattedAddress || '未知'}
+坐标: ${geoResult.position.lng}, ${geoResult.position.lat}`;
+                                    result.className = 'result success';
+                                } else {
+                                    result.innerHTML = `❌ 定位失败
+可能原因：
+1. 广告拦截器阻止了请求
+2. 没有位置权限
+3. 网络连接问题
+
+解决方案：
+1. 关闭广告拦截器
+2. 允许位置权限
+3. 检查网络连接`;
+                                    result.className = 'result error';
+                                }
+                            });
+                        });
+                    }
+                });
+            });
+        }
+
+        function testRoute() {
+            const result = document.getElementById('routeResult');
+            const origin = document.getElementById('origin').value.trim();
+            const destination = document.getElementById('destination').value.trim();
+
+            if (!AMap) {
+                result.innerHTML = '❌ 请先加载API';
+                result.className = 'result error';
+                return;
+            }
+
+            if (!origin || !destination) {
+                result.innerHTML = '❌ 请输入起点和终点';
+                result.className = 'result error';
+                return;
+            }
+
+            result.innerHTML = '🔄 正在规划路线...';
+            result.className = 'result';
+
+            // 方法1: 直接使用关键字搜索（推荐）
+            AMap.plugin('AMap.Driving', function() {
+                const driving = new AMap.Driving({
+                    map: map,
+                    panel: null
+                });
+
+                // 使用官方文档推荐的格式：[{keyword:'起点',city:'城市'},{keyword:'终点',city:'城市'}]
+                const points = [
+                    {keyword: origin, city: '北京'},
+                    {keyword: destination, city: '北京'}
+                ];
+
+                driving.search(points, function(status, routeResult) {
+                    if (status === 'complete' && routeResult.routes && routeResult.routes.length > 0) {
+                        const route = routeResult.routes[0];
+                        result.innerHTML = `✅ 路线规划成功！
+起点: ${routeResult.start ? routeResult.start.name : origin}
+终点: ${routeResult.end ? routeResult.end.name : destination}
+距离: ${(route.distance / 1000).toFixed(1)}公里
+时间: ${Math.round(route.time / 60)}分钟
+费用: ¥${route.tolls || 0}
+策略: ${route.policy || '默认'}`;
+                        result.className = 'result success';
+                    } else {
+                        result.innerHTML = `❌ 路线规划失败
+状态: ${status}
+错误信息: ${routeResult ? (routeResult.info || '未知错误') : '无响应'}
+
+可能原因：
+1. 地址无法识别，请使用更具体的地址
+2. API密钥权限不足
+3. 网络连接问题
+4. 广告拦截器阻止了请求
+
+建议：
+- 使用完整地址，如"北京市东城区天安门广场"
+- 检查API密钥是否开通了路线规划服务
+- 暂时关闭广告拦截器`;
+                        result.className = 'result error';
+                    }
+                });
+            });
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>快速API测试</title>
+    <script>
+        window._AMapSecurityConfig = {
+            securityJsCode: "db2b6cf5ae4f82ee233b1abe16aa459a",
+        }
+    </script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 600px; margin: 0 auto; }
+        button { padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        .result { background: #f8f9fa; padding: 15px; margin: 10px 0; border-radius: 5px; border-left: 4px solid #007bff; }
+        .success { border-left-color: #28a745; }
+        .error { border-left-color: #dc3545; }
+        input { padding: 8px; margin: 5px; border: 1px solid #ddd; border-radius: 4px; width: 300px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 快速API测试</h1>
+        <p>用于快速验证API密钥是否正常工作</p>
+        
+        <div>
+            <input type="password" id="apiKey" placeholder="输入API密钥">
+            <button onclick="testAPI()">测试API</button>
+            <div id="result" class="result">请输入API密钥进行测试</div>
+        </div>
+    </div>
+
+    <script>
+        function testAPI() {
+            const key = document.getElementById('apiKey').value.trim();
+            const result = document.getElementById('result');
+            
+            if (!key) {
+                result.innerHTML = '❌ 请输入API密钥';
+                result.className = 'result error';
+                return;
+            }
+
+            result.innerHTML = '🔄 正在测试API密钥...';
+            result.className = 'result';
+
+            // 移除旧脚本
+            const oldScript = document.querySelector('script[src*="webapi.amap.com"]');
+            if (oldScript) {
+                oldScript.remove();
+                console.log('移除了旧脚本');
+            }
+
+            // 重置AMap
+            if (window.AMap) {
+                delete window.AMap;
+                console.log('重置了AMap对象');
+            }
+
+            const script = document.createElement('script');
+            script.src = `https://webapi.amap.com/maps?v=1.4.15&key=${key}`;
+            
+            script.onload = () => {
+                console.log('脚本加载完成');
+                if (window.AMap) {
+                    console.log('AMap对象存在');
+                    
+                    // 测试基本功能
+                    try {
+                        const map = new AMap.Map(document.createElement('div'), {
+                            zoom: 11,
+                            center: [116.397428, 39.90923]
+                        });
+                        
+                        result.innerHTML = `✅ API密钥验证成功！
+API密钥: ${key.substring(0, 8)}...
+AMap版本: ${AMap.version || '1.4.15'}
+地图对象: 创建成功`;
+                        result.className = 'result success';
+                        
+                        // 清理测试地图
+                        map.destroy();
+                        
+                    } catch (error) {
+                        result.innerHTML = `❌ 地图创建失败: ${error.message}
+这可能是API权限问题`;
+                        result.className = 'result error';
+                    }
+                } else {
+                    result.innerHTML = '❌ AMap对象未找到，API加载失败';
+                    result.className = 'result error';
+                }
+            };
+            
+            script.onerror = () => {
+                result.innerHTML = `❌ API加载失败
+可能原因：
+1. API密钥无效
+2. 网络连接问题  
+3. 广告拦截器阻止
+4. 安全密钥配置错误
+
+当前安全密钥: db2b6cf5ae4f82ee233b1abe16aa459a`;
+                result.className = 'result error';
+            };
+            
+            console.log('开始加载脚本:', script.src);
+            document.head.appendChild(script);
+        }
+
+        // 页面加载时显示当前状态
+        window.addEventListener('load', function() {
+            const result = document.getElementById('result');
+            result.innerHTML = `🔍 当前状态检查:
+安全密钥: ${window._AMapSecurityConfig ? '✅ 已配置' : '❌ 未配置'}
+AMap对象: ${window.AMap ? '✅ 已存在' : '❌ 不存在'}
+
+请输入API密钥进行测试`;
+        });
+    </script>
+</body>
+</html>

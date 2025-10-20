@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🌟 智能旅游路线规划助手</title>
+    <script>
+        window._AMapSecurityConfig = {
+            securityJsCode: "db2b6cf5ae4f82ee233b1abe16aa459a",
+        }
+    </script>
+    <link rel="stylesheet" href="travel-style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- API设置面板 -->
+        <div id="api-setup" class="api-setup">
+            <div class="api-setup-content">
+                <h2>🔑 设置高德地图API密钥</h2>
+                <p>请输入你的高德地图API密钥开始规划旅程</p>
+                
+                <div class="input-group">
+                    <label for="api-key-input">API密钥：</label>
+                    <input type="password" id="api-key-input" placeholder="请输入高德地图API密钥">
+                    <button type="button" id="toggle-api-visibility" class="toggle-btn">👁️</button>
+                </div>
+                
+                <div class="api-actions">
+                    <button id="save-api-key" class="save-button">💾 开始我的旅程</button>
+                    <button id="get-api-help" class="help-button">❓ 如何获取密钥</button>
+                </div>
+                
+                <div id="api-help" class="api-help" style="display: none;">
+                    <h3>📋 获取API密钥步骤：</h3>
+                    <ol>
+                        <li>访问 <a href="https://lbs.amap.com/" target="_blank">高德开放平台</a></li>
+                        <li>注册并登录账号</li>
+                        <li>创建新应用，选择"Web端(JS API)"</li>
+                        <li>获取API Key和安全密钥</li>
+                        <li>在白名单中添加 localhost:8000</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+
+        <!-- 主应用界面 -->
+        <div class="main-app" id="main-app" style="display: none;">
+            <header>
+                <h1>🌟 智能旅游路线规划助手</h1>
+                <p>让每一次出行都变得简单而美好</p>
+            </header>
+
+            <div class="app-layout">
+                <!-- 左侧规划面板 -->
+                <div class="planning-panel">
+                    <div class="trip-info">
+                        <h3>🎯 行程规划</h3>
+                        <div class="trip-type">
+                            <label>旅行类型：</label>
+                            <select id="trip-type">
+                                <option value="sightseeing">🏛️ 观光游览</option>
+                                <option value="business">💼 商务出行</option>
+                                <option value="shopping">🛍️ 购物休闲</option>
+                                <option value="food">🍜 美食探索</option>
+                                <option value="transport">🚄 交通接驳</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- 出发地设置 -->
+                    <div class="location-section">
+                        <h4>📍 出发地</h4>
+                        <div class="location-input">
+                            <div class="input-with-search">
+                                <input type="text" id="origin" placeholder="输入出发地址或选择定位">
+                                <button id="search-origin" class="search-btn">🔍</button>
+                            </div>
+                            <div class="location-buttons">
+                                <button id="use-current-location" class="location-btn">📍 当前位置</button>
+                                <button id="use-ip-location" class="location-btn">🌐 城市定位</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 目的地设置 -->
+                    <div class="location-section">
+                        <h4>🎯 目的地</h4>
+                        <div class="destination-input">
+                            <div class="input-with-search">
+                                <input type="text" id="destination" placeholder="输入目的地址">
+                                <button id="search-destination" class="search-btn">🔍</button>
+                            </div>
+                            <button id="add-waypoint" class="add-btn">➕ 添加途经点</button>
+                        </div>
+                        <div id="waypoints-list" class="waypoints-list"></div>
+                    </div>
+
+                    <!-- 偏好设置 -->
+                    <div class="preferences">
+                        <h4>⚙️ 出行偏好</h4>
+                        <div class="preference-grid">
+                            <label class="preference-item">
+                                <input type="checkbox" id="avoid-tolls" checked>
+                                <span>💰 优先经济路线</span>
+                            </label>
+                            <label class="preference-item">
+                                <input type="checkbox" id="fastest-route" checked>
+                                <span>⚡ 优先最快路线</span>
+                            </label>
+                            <label class="preference-item">
+                                <input type="checkbox" id="scenic-route">
+                                <span>🌸 优先风景路线</span>
+                            </label>
+                            <label class="preference-item">
+                                <input type="checkbox" id="avoid-highways">
+                                <span>🛣️ 避开高速公路</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- 交通方式选择 -->
+                    <div class="transport-selection">
+                        <h4>🚗 交通方式</h4>
+                        <div class="transport-grid">
+                            <label class="transport-item">
+                                <input type="checkbox" id="driving" checked>
+                                <span>🚗 驾车</span>
+                            </label>
+                            <label class="transport-item">
+                                <input type="checkbox" id="walking" checked>
+                                <span>🚶 步行</span>
+                            </label>
+                            <label class="transport-item">
+                                <input type="checkbox" id="transit" checked>
+                                <span>🚌 公交</span>
+                            </label>
+                            <label class="transport-item">
+                                <input type="checkbox" id="riding" checked>
+                                <span>🚴 骑行</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- 规划按钮 -->
+                    <div class="action-buttons">
+                        <button id="plan-route" class="plan-button">🗺️ 开始规划路线</button>
+                        <button id="save-plan" class="save-button" style="display: none;">💾 保存方案</button>
+                        <button id="export-plan" class="export-button" style="display: none;">📤 导出行程</button>
+                    </div>
+
+                    <!-- 快捷操作 -->
+                    <div class="quick-actions">
+                        <h4>⚡ 快捷操作</h4>
+                        <button id="clear-all" class="quick-btn">🗑️ 清空重新规划</button>
+                        <button id="reverse-route" class="quick-btn">🔄 起终点互换</button>
+                        <button id="change-api" class="quick-btn">🔧 更换API密钥</button>
+                    </div>
+                </div>
+
+                <!-- 中间地图区域 -->
+                <div class="map-section">
+                    <div id="map-container"></div>
+                    <div class="map-controls">
+                        <button id="center-map" class="map-control-btn">🎯 居中显示</button>
+                        <button id="satellite-view" class="map-control-btn">🛰️ 卫星视图</button>
+                        <button id="traffic-view" class="map-control-btn">🚦 实时路况</button>
+                    </div>
+                </div>
+
+                <!-- 右侧结果面板 -->
+                <div class="results-panel">
+                    <div class="results-header">
+                        <h3>📊 路线方案</h3>
+                        <div class="sort-options">
+                            <select id="sort-by">
+                                <option value="time">⏱️ 按时间排序</option>
+                                <option value="distance">📏 按距离排序</option>
+                                <option value="cost">💰 按费用排序</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div id="results-list">
+                        <div class="welcome-message">
+                            <div class="welcome-icon">🗺️</div>
+                            <h4>欢迎使用智能旅游规划助手</h4>
+                            <p>设置出发地和目的地，开始规划你的完美旅程</p>
+                            <div class="tips">
+                                <h5>💡 使用技巧：</h5>
+                                <ul>
+                                    <li>点击定位按钮快速获取当前位置</li>
+                                    <li>添加途经点规划多站点行程</li>
+                                    <li>选择偏好获得个性化路线</li>
+                                    <li>对比不同交通方式选择最佳方案</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 统计信息 -->
+                    <div id="trip-summary" class="trip-summary" style="display: none;">
+                        <h4>📈 行程统计</h4>
+                        <div class="summary-grid">
+                            <div class="summary-item">
+                                <span class="summary-label">总距离</span>
+                                <span class="summary-value" id="total-distance">-</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="summary-label">预计时间</span>
+                                <span class="summary-value" id="total-time">-</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="summary-label">预计费用</span>
+                                <span class="summary-value" id="total-cost">-</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="summary-label">推荐方式</span>
+                                <span class="summary-value" id="recommended-mode">-</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="travel-script.js"></script>
+</body>
+</html>

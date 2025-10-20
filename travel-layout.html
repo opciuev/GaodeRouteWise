@@ -1,0 +1,1092 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>旅游路线规划助手 - 三栏布局</title>
+    <script>
+        window._AMapSecurityConfig = {
+            securityJsCode: "db2b6cf5ae4f82ee233b1abe16aa459a",
+        }
+    </script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft YaHei', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .app-header {
+            text-align: center;
+            padding: 20px;
+            color: white;
+        }
+
+        .app-header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .app-header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        /* API设置面板 */
+        .api-setup {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .api-setup-content {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 500px;
+            width: 90%;
+            text-align: center;
+        }
+
+        .api-setup-content h2 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.8em;
+        }
+
+        .api-setup-content p {
+            color: #666;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+
+        .input-group {
+            position: relative;
+            margin-bottom: 25px;
+            text-align: left;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #555;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 12px 50px 12px 12px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .toggle-btn {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            padding: 5px;
+            border-radius: 4px;
+            transition: background-color 0.2s ease;
+        }
+
+        .toggle-btn:hover {
+            background-color: #f0f0f0;
+        }
+
+        .api-actions {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+
+        .save-button, .help-button {
+            padding: 15px 25px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .save-button {
+            background: linear-gradient(135deg, #00b894 0%, #00a085 100%);
+            color: white;
+        }
+
+        .help-button {
+            background: linear-gradient(135deg, #fdcb6e 0%, #e17055 100%);
+            color: white;
+        }
+
+        .save-button:hover, .help-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 184, 148, 0.4);
+        }
+
+        /* 三栏布局 */
+        .app-layout {
+            display: grid;
+            grid-template-columns: 350px 1fr 400px;
+            gap: 20px;
+            height: calc(100vh - 140px);
+            padding: 0 20px 20px;
+        }
+
+        /* 左侧面板 */
+        .left-panel {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            overflow-y: auto;
+        }
+
+        .panel-section {
+            margin-bottom: 30px;
+        }
+
+        .panel-title {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.2em;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #555;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        /* 自动补全样式 */
+        .autocomplete-container {
+            position: relative;
+        }
+
+        .autocomplete-suggestions {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #e1e5e9;
+            border-top: none;
+            border-radius: 0 0 8px 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 1000;
+            display: none;
+        }
+
+        .autocomplete-suggestions.show {
+            display: block;
+        }
+
+        .suggestion-item {
+            padding: 12px 15px;
+            cursor: pointer;
+            border-bottom: 1px solid #f0f0f0;
+            transition: background-color 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .suggestion-item:hover,
+        .suggestion-item.highlighted {
+            background: #f0f8ff;
+        }
+
+        .suggestion-item:last-child {
+            border-bottom: none;
+        }
+
+        .suggestion-icon {
+            font-size: 14px;
+            color: #667eea;
+        }
+
+        .suggestion-content {
+            flex: 1;
+        }
+
+        .suggestion-name {
+            font-weight: bold;
+            color: #333;
+            font-size: 13px;
+            margin-bottom: 2px;
+        }
+
+        .suggestion-address {
+            color: #666;
+            font-size: 11px;
+        }
+
+        .suggestion-distance {
+            color: #999;
+            font-size: 10px;
+        }
+
+        .location-buttons {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .location-btn {
+            flex: 1;
+            padding: 8px 12px;
+            background: linear-gradient(135deg, #74b9ff 0%, #0984e3 100%);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .location-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 3px 10px rgba(116, 185, 255, 0.4);
+        }
+
+        /* 交通方式卡片 */
+        .transport-cards {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .transport-card {
+            position: relative;
+            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            padding: 12px 8px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .transport-card:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 3px 12px rgba(102, 126, 234, 0.2);
+            border-color: #667eea;
+        }
+
+        .transport-card.selected {
+            border-color: #667eea;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            box-shadow: 0 3px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        .card-icon {
+            font-size: 1.5em;
+            margin-bottom: 6px;
+        }
+
+        .card-title {
+            font-size: 0.8em;
+            font-weight: bold;
+            margin: 0;
+        }
+
+        .search-button {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-bottom: 20px;
+        }
+
+        .search-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .quick-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .quick-btn {
+            padding: 10px;
+            background: #f8f9fa;
+            border: 1px solid #e1e5e9;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s ease;
+        }
+
+        .quick-btn:hover {
+            background: #e9ecef;
+            transform: translateX(2px);
+        }
+
+        /* 中间地图面板 */
+        .center-panel {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            overflow: hidden;
+            position: relative;
+        }
+
+        .map-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+
+        #map-container {
+            width: 100%;
+            height: 100%;
+            background: #f0f0f0;
+        }
+
+        .map-controls {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            z-index: 1000;
+        }
+
+        .map-control-btn {
+            padding: 8px 12px;
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: all 0.2s ease;
+        }
+
+        .map-control-btn:hover {
+            background: white;
+            transform: translateY(-1px);
+        }
+
+        /* 右侧结果面板 */
+        .right-panel {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            overflow-y: auto;
+        }
+
+        .results-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .results-header h3 {
+            color: #333;
+            margin: 0;
+        }
+
+        .sort-select {
+            padding: 6px 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 12px;
+        }
+
+        .results-content {
+            height: calc(100% - 80px);
+            overflow-y: auto;
+        }
+
+        .welcome-message {
+            text-align: center;
+            padding: 40px 20px;
+            color: #666;
+        }
+
+        .welcome-icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+        }
+
+        .welcome-message h4 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+
+        .welcome-message p {
+            margin-bottom: 25px;
+            line-height: 1.6;
+        }
+
+        /* 路线提示和操作 */
+        .route-tips {
+            background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .tips-icon {
+            font-size: 1.2em;
+        }
+
+        .tips-text {
+            font-size: 0.9em;
+            color: #555;
+            font-weight: 500;
+        }
+
+        .route-item {
+            background: #f8f9fa;
+            padding: 15px;
+            margin-bottom: 12px;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .route-item:hover {
+            transform: translateX(3px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            background: #f0f8ff;
+        }
+
+        .route-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .transport-type {
+            background: #667eea;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .route-time {
+            font-weight: bold;
+            color: #333;
+            font-size: 14px;
+        }
+
+        .route-info {
+            font-size: 13px;
+            color: #666;
+            line-height: 1.4;
+        }
+
+        .route-distance, .route-cost {
+            margin-bottom: 4px;
+        }
+
+        .route-action {
+            margin-top: 10px;
+            text-align: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .route-item:hover .route-action {
+            opacity: 1;
+        }
+
+        .view-on-map {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 15px;
+            font-size: 11px;
+            font-weight: bold;
+            display: inline-block;
+        }
+
+        /* 路线操作按钮 */
+        .route-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 12px;
+            justify-content: center;
+        }
+
+        .action-btn {
+            flex: 1;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .view-map-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .details-btn {
+            background: linear-gradient(135deg, #74b9ff 0%, #0984e3 100%);
+            color: white;
+        }
+
+        /* POI景点功能样式 */
+        .poi-controls {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            border: 1px solid #e9ecef;
+        }
+
+        .poi-types {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .poi-type-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 10px;
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 1px solid #e9ecef;
+        }
+
+        .poi-type-item:hover {
+            background: #e3f2fd;
+            border-color: #667eea;
+        }
+
+        .poi-type-item input[type="checkbox"] {
+            margin: 0;
+            accent-color: #667eea;
+        }
+
+        .poi-type-label {
+            font-size: 12px;
+            font-weight: 500;
+            user-select: none;
+        }
+
+        .poi-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .poi-button {
+            flex: 1;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .poi-button {
+            background: linear-gradient(135deg, #fd79a8 0%, #e84393 100%);
+            color: white;
+        }
+
+        .poi-button.secondary {
+            background: linear-gradient(135deg, #74b9ff 0%, #0984e3 100%);
+        }
+
+        .poi-button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 3px 8px rgba(0,0,0,0.2);
+        }
+
+        .action-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 3px 8px rgba(0,0,0,0.2);
+        }
+
+        /* 详细步骤展开区域 */
+        .route-details {
+            margin-top: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+            animation: slideDown 0.3s ease;
+        }
+
+        .details-header, .poi-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 15px;
+            background: linear-gradient(135deg, #74b9ff 0%, #0984e3 100%);
+            color: white;
+            border-radius: 8px 8px 0 0;
+            font-weight: bold;
+            font-size: 13px;
+        }
+
+        .poi-header {
+            background: linear-gradient(135deg, #fd79a8 0%, #e84393 100%);
+        }
+
+        .close-details, .close-poi {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            padding: 2px 6px;
+            border-radius: 3px;
+            transition: background-color 0.2s ease;
+        }
+
+        .close-details:hover, .close-poi:hover {
+            background: rgba(255,255,255,0.2);
+        }
+
+        .details-content, .poi-content {
+            padding: 15px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        /* 步骤列表样式 */
+        .steps-summary {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 15px;
+            padding: 10px;
+            background: #e3f2fd;
+            border-radius: 6px;
+            font-weight: bold;
+            color: #1976d2;
+        }
+
+        .mode-icon {
+            font-size: 1.2em;
+        }
+
+        .step-item {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 12px;
+            padding: 12px;
+            background: white;
+            border-radius: 6px;
+            border-left: 3px solid #667eea;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .transit-walk {
+            border-left-color: #52c41a;
+        }
+
+        .transit-ride {
+            border-left-color: #fa8c16;
+        }
+
+        .step-number {
+            background: #667eea;
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+
+        .step-content {
+            flex: 1;
+        }
+
+        .step-instruction {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 6px;
+            line-height: 1.4;
+        }
+
+        .step-details {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            font-size: 11px;
+            color: #666;
+        }
+
+        .step-details span {
+            background: #f0f0f0;
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+
+        /* POI样式 */
+        .nearby-poi {
+            margin-top: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+            animation: slideDown 0.3s ease;
+        }
+
+        .poi-sections {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .poi-section {
+            background: white;
+            border-radius: 6px;
+            padding: 12px;
+            border: 1px solid #e9ecef;
+        }
+
+        .poi-section-title {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 13px;
+            font-weight: bold;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 5px;
+        }
+
+        .poi-item {
+            padding: 8px 10px;
+            margin-bottom: 8px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border-left: 3px solid transparent;
+        }
+
+        .poi-item:hover {
+            background: #e3f2fd;
+            border-left-color: #667eea;
+            transform: translateX(3px);
+        }
+
+        .poi-name {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 3px;
+            font-size: 12px;
+        }
+
+        .poi-address {
+            color: #666;
+            font-size: 11px;
+            margin-bottom: 3px;
+        }
+
+        .poi-distance {
+            color: #999;
+            font-size: 10px;
+        }
+
+        .loading-steps, .loading-poi, .error-steps, .error-poi {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+            font-style: italic;
+        }
+
+        .error-steps, .error-poi {
+            color: #dc3545;
+        }
+
+        /* 动画效果 */
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 1200px) {
+            .app-layout {
+                grid-template-columns: 300px 1fr 350px;
+            }
+        }
+
+        @media (max-width: 1024px) {
+            .app-layout {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto auto 1fr;
+                height: auto;
+            }
+            
+            .left-panel, .right-panel {
+                max-height: 400px;
+            }
+            
+            .center-panel {
+                height: 500px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- API设置面板 -->
+    <div id="api-setup" class="api-setup">
+        <div class="api-setup-content">
+            <h2>🔑 设置高德地图API密钥</h2>
+            <p>请输入你的高德地图API密钥以开始使用路线规划功能</p>
+
+            <div class="input-group">
+                <label for="api-key-input">API密钥：</label>
+                <input type="password" id="api-key-input" placeholder="请输入高德地图API密钥">
+                <button type="button" id="toggle-api-visibility" class="toggle-btn">👁️</button>
+            </div>
+
+            <div class="api-actions">
+                <button id="save-api-key" class="save-button">💾 保存并开始使用</button>
+                <button id="get-api-help" class="help-button">❓ 如何获取API密钥</button>
+                <button onclick="clearCache()" class="help-button">🗑️ 清除缓存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 主应用界面 -->
+    <div id="main-app" style="display: none;">
+        <div class="app-header">
+            <h1>🗺️ 旅游路线规划助手</h1>
+            <p>智能规划你的出行路线，让每一次旅行都完美无缺</p>
+        </div>
+
+        <div class="app-layout">
+            <!-- 左侧控制面板 -->
+            <div class="left-panel">
+                <div class="panel-section">
+                    <h3 class="panel-title">📍 位置设置</h3>
+                    
+                    <div class="input-group">
+                        <label for="origin">出发地</label>
+                        <div class="autocomplete-container">
+                            <input type="text" id="origin" placeholder="请输入出发地址" autocomplete="off">
+                            <div class="autocomplete-suggestions" id="origin-suggestions"></div>
+                        </div>
+                        <div class="location-buttons">
+                            <button id="use-current-location" class="location-btn">📍 当前位置</button>
+                            <button id="use-ip-location" class="location-btn">🌐 IP定位</button>
+                        </div>
+                    </div>
+
+                    <div class="input-group">
+                        <label for="destination">目的地</label>
+                        <div class="autocomplete-container">
+                            <input type="text" id="destination" placeholder="请输入目的地址" autocomplete="off">
+                            <div class="autocomplete-suggestions" id="destination-suggestions"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel-section">
+                    <h3 class="panel-title">
+                        <span>🚀</span>
+                        <span>选择出行方式</span>
+                    </h3>
+                    <div class="transport-cards">
+                        <div class="transport-card" data-mode="driving">
+                            <input type="checkbox" id="driving" checked hidden>
+                            <div class="card-icon">🚗</div>
+                            <div class="card-title">驾车</div>
+                        </div>
+
+                        <div class="transport-card" data-mode="transit">
+                            <input type="checkbox" id="transit" checked hidden>
+                            <div class="card-icon">🚌</div>
+                            <div class="card-title">公共交通</div>
+                        </div>
+
+                        <div class="transport-card" data-mode="walking">
+                            <input type="checkbox" id="walking" checked hidden>
+                            <div class="card-icon">🚶</div>
+                            <div class="card-title">步行</div>
+                        </div>
+
+                        <div class="transport-card" data-mode="riding">
+                            <input type="checkbox" id="riding" checked hidden>
+                            <div class="card-icon">🚴</div>
+                            <div class="card-title">骑行</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel-section">
+                    <button id="search-btn" class="search-button">🗺️ 开始规划路线</button>
+                </div>
+
+                <div class="panel-section">
+                    <h3 class="panel-title">
+                        <span>🏛️</span>
+                        <span>附近景点探索</span>
+                    </h3>
+                    <div class="poi-controls">
+                        <div class="poi-types">
+                            <label class="poi-type-item">
+                                <input type="checkbox" id="poi-tourist" checked>
+                                <span class="poi-type-label">🏛️ 旅游景点</span>
+                            </label>
+                            <label class="poi-type-item">
+                                <input type="checkbox" id="poi-food">
+                                <span class="poi-type-label">🍜 美食餐厅</span>
+                            </label>
+                            <label class="poi-type-item">
+                                <input type="checkbox" id="poi-shopping">
+                                <span class="poi-type-label">🛍️ 购物中心</span>
+                            </label>
+                            <label class="poi-type-item">
+                                <input type="checkbox" id="poi-hotel">
+                                <span class="poi-type-label">🏨 酒店住宿</span>
+                            </label>
+                        </div>
+                        <div class="poi-actions">
+                            <button id="search-poi-btn" class="poi-button">🔍 搜索附近景点</button>
+                            <button id="clear-poi-btn" class="poi-button secondary">🗑️ 清除标记</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel-section">
+                    <div class="quick-actions">
+                        <button id="change-api-key" class="quick-btn">🔧 更换API密钥</button>
+                        <button onclick="clearCache()" class="quick-btn">🗑️ 清除缓存</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 中间地图区域 -->
+            <div class="center-panel">
+                <div class="map-container">
+                    <div id="map-container"></div>
+                    <div class="map-controls">
+                        <button class="map-control-btn" onclick="centerMap()">🎯 居中显示</button>
+                        <button class="map-control-btn" onclick="clearRoutes()">🗑️ 清除路线</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右侧结果面板 -->
+            <div class="right-panel">
+                <div class="results-header">
+                    <h3>📊 路线方案</h3>
+                    <select id="sort-by" class="sort-select">
+                        <option value="time">按时间排序</option>
+                        <option value="distance">按距离排序</option>
+                        <option value="cost">按费用排序</option>
+                    </select>
+                </div>
+                <div id="results-list" class="results-content">
+                    <div class="welcome-message">
+                        <div class="welcome-icon">🗺️</div>
+                        <h4>开始你的旅程</h4>
+                        <p>设置出发地和目的地，选择交通方式，我们将为你规划最佳路线</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js?v=20250812-23"></script>
+</body>
+</html>

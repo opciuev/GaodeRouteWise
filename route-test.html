@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>路线规划测试</title>
+    <script>
+        window._AMapSecurityConfig = {
+            securityJsCode: "db2b6cf5ae4f82ee233b1abe16aa459a",
+        }
+    </script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        button { padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .result { background: #f8f9fa; padding: 15px; margin: 10px 0; border-radius: 5px; border-left: 4px solid #007bff; white-space: pre-wrap; }
+        .success { border-left-color: #28a745; }
+        .error { border-left-color: #dc3545; }
+        input { padding: 8px; margin: 5px; border: 1px solid #ddd; border-radius: 4px; width: 300px; }
+        #map { width: 100%; height: 400px; border: 1px solid #ddd; margin: 10px 0; }
+        .step { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 8px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🗺️ 路线规划详细测试</h1>
+        
+        <div class="step">
+            <h3>步骤1: 加载API</h3>
+            <input type="password" id="apiKey" placeholder="输入API密钥">
+            <button onclick="loadAPI()">加载API</button>
+            <div id="apiResult" class="result">请输入API密钥</div>
+        </div>
+
+        <div class="step">
+            <h3>步骤2: 创建地图</h3>
+            <button onclick="createMap()">创建地图</button>
+            <div id="map"></div>
+            <div id="mapResult" class="result">请先加载API</div>
+        </div>
+
+        <div class="step">
+            <h3>步骤3: 测试地理编码</h3>
+            <input type="text" id="testAddress" value="北京市东城区天安门广场" placeholder="测试地址">
+            <button onclick="testGeocode()">地址解析</button>
+            <div id="geocodeResult" class="result">请先加载API</div>
+        </div>
+
+        <div class="step">
+            <h3>步骤4: 测试路线规划</h3>
+            <input type="text" id="origin" value="北京市东城区天安门广场" placeholder="起点">
+            <input type="text" id="destination" value="北京市西城区北京西站" placeholder="终点">
+            <br>
+            <button onclick="testRouteByAddress()">按地址规划</button>
+            <button onclick="testRouteByCoords()">按坐标规划</button>
+            <button onclick="testAllMethods()">测试所有方法</button>
+            <div id="routeResult" class="result">请先加载API</div>
+        </div>
+    </div>
+
+    <script>
+        let AMap;
+        let map;
+
+        function loadAPI() {
+            const key = document.getElementById('apiKey').value.trim();
+            const result = document.getElementById('apiResult');
+            
+            if (!key) {
+                result.innerHTML = '❌ 请输入API密钥';
+                result.className = 'result error';
+                return;
+            }
+
+            result.innerHTML = '🔄 正在加载API...';
+            result.className = 'result';
+
+            const script = document.createElement('script');
+            script.src = `https://webapi.amap.com/maps?v=1.4.15&key=${key}`;
+            
+            script.onload = () => {
+                if (window.AMap) {
+                    AMap = window.AMap;
+                    result.innerHTML = '✅ API加载成功！';
+                    result.className = 'result success';
+                } else {
+                    result.innerHTML = '❌ API对象未找到';
+                    result.className = 'result error';
+                }
+            };
+            
+            script.onerror = () => {
+                result.innerHTML = '❌ 网络错误，无法加载API';
+                result.className = 'result error';
+            };
+            
+            document.head.appendChild(script);
+        }
+
+        function createMap() {
+            const result = document.getElementById('mapResult');
+            
+            if (!AMap) {
+                result.innerHTML = '❌ 请先加载API';
+                result.className = 'result error';
+                return;
+            }
+
+            try {
+                map = new AMap.Map('map', {
+                    zoom: 11,
+                    center: [116.397428, 39.90923],
+                    mapStyle: 'amap://styles/normal'
+                });
+                
+                result.innerHTML = '✅ 地图创建成功！';
+                result.className = 'result success';
+            } catch (error) {
+                result.innerHTML = '❌ 地图创建失败: ' + error.message;
+                result.className = 'result error';
+            }
+        }
+
+        function testGeocode() {
+            const address = document.getElementById('testAddress').value.trim();
+            const result = document.getElementById('geocodeResult');
+            
+            if (!AMap) {
+                result.innerHTML = '❌ 请先加载API';
+                result.className = 'result error';
+                return;
+            }
+
+            result.innerHTML = '🔄 正在解析地址...';
+            result.className = 'result';
+
+            AMap.plugin('AMap.Geocoder', function() {
+                const geocoder = new AMap.Geocoder({
+                    extensions: 'all'
+                });
+                
+                geocoder.getLocation(address, function(status, geocodeResult) {
+                    if (status === 'complete' && geocodeResult.geocodes.length) {
+                        const location = geocodeResult.geocodes[0];
+                        result.innerHTML = `✅ 地址解析成功！
+地址: ${location.formattedAddress}
+坐标: ${location.location.lng}, ${location.location.lat}
+级别: ${location.level}
+详细信息: ${JSON.stringify(location, null, 2)}`;
+                        result.className = 'result success';
+                    } else {
+                        result.innerHTML = `❌ 地址解析失败
+状态: ${status}
+结果: ${JSON.stringify(geocodeResult, null, 2)}`;
+                        result.className = 'result error';
+                    }
+                });
+            });
+        }
+
+        function testRouteByAddress() {
+            const origin = document.getElementById('origin').value.trim();
+            const destination = document.getElementById('destination').value.trim();
+            const result = document.getElementById('routeResult');
+            
+            if (!AMap) {
+                result.innerHTML = '❌ 请先加载API';
+                result.className = 'result error';
+                return;
+            }
+
+            result.innerHTML = '🔄 正在按地址规划路线...';
+            result.className = 'result';
+
+            AMap.plugin('AMap.Driving', function() {
+                const driving = new AMap.Driving({
+                    map: map,
+                    panel: null
+                });
+                
+                driving.search([
+                    {keyword: origin},
+                    {keyword: destination}
+                ], function(status, routeResult) {
+                    result.innerHTML = `路线规划结果（按地址）:
+状态: ${status}
+结果: ${JSON.stringify(routeResult, null, 2)}`;
+                    
+                    if (status === 'complete' && routeResult.routes && routeResult.routes.length > 0) {
+                        const route = routeResult.routes[0];
+                        result.innerHTML += `
+
+✅ 路线规划成功！
+距离: ${(route.distance / 1000).toFixed(1)}公里
+时间: ${Math.round(route.time / 60)}分钟
+费用: ¥${route.tolls || 0}`;
+                        result.className = 'result success';
+                    } else {
+                        result.className = 'result error';
+                    }
+                });
+            });
+        }
+
+        function testRouteByCoords() {
+            const origin = document.getElementById('origin').value.trim();
+            const destination = document.getElementById('destination').value.trim();
+            const result = document.getElementById('routeResult');
+            
+            if (!AMap) {
+                result.innerHTML = '❌ 请先加载API';
+                result.className = 'result error';
+                return;
+            }
+
+            result.innerHTML = '🔄 正在按坐标规划路线...';
+            result.className = 'result';
+
+            // 先获取坐标
+            AMap.plugin('AMap.Geocoder', function() {
+                const geocoder = new AMap.Geocoder();
+                
+                geocoder.getLocation(origin, function(status1, result1) {
+                    if (status1 === 'complete' && result1.geocodes.length) {
+                        const originCoord = result1.geocodes[0].location;
+                        
+                        geocoder.getLocation(destination, function(status2, result2) {
+                            if (status2 === 'complete' && result2.geocodes.length) {
+                                const destCoord = result2.geocodes[0].location;
+                                
+                                // 使用坐标规划路线
+                                AMap.plugin('AMap.Driving', function() {
+                                    const driving = new AMap.Driving({
+                                        map: map,
+                                        panel: null
+                                    });
+                                    
+                                    driving.search(originCoord, destCoord, function(status, routeResult) {
+                                        result.innerHTML = `路线规划结果（按坐标）:
+起点坐标: ${originCoord.lng}, ${originCoord.lat}
+终点坐标: ${destCoord.lng}, ${destCoord.lat}
+状态: ${status}
+结果: ${JSON.stringify(routeResult, null, 2)}`;
+                                        
+                                        if (status === 'complete' && routeResult.routes && routeResult.routes.length > 0) {
+                                            const route = routeResult.routes[0];
+                                            result.innerHTML += `
+
+✅ 路线规划成功！
+距离: ${(route.distance / 1000).toFixed(1)}公里
+时间: ${Math.round(route.time / 60)}分钟
+费用: ¥${route.tolls || 0}`;
+                                            result.className = 'result success';
+                                        } else {
+                                            result.className = 'result error';
+                                        }
+                                    });
+                                });
+                            } else {
+                                result.innerHTML = `❌ 终点地址解析失败: ${destination}`;
+                                result.className = 'result error';
+                            }
+                        });
+                    } else {
+                        result.innerHTML = `❌ 起点地址解析失败: ${origin}`;
+                        result.className = 'result error';
+                    }
+                });
+            });
+        }
+
+        function testAllMethods() {
+            const result = document.getElementById('routeResult');
+            result.innerHTML = '🔄 正在测试所有路线规划方法...';
+            result.className = 'result';
+            
+            setTimeout(() => testRouteByAddress(), 100);
+            setTimeout(() => testRouteByCoords(), 3000);
+        }
+    </script>
+</body>
+</html>
