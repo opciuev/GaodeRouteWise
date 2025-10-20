@@ -557,10 +557,12 @@
                                 status: 'success'
                             });
                         } else {
+                            const errorInfo = result.info || '查询失败';
                             results.push({
                                 strategy: strategy.name,
-                                error: result.info || '查询失败',
-                                status: 'error'
+                                error: errorInfo,
+                                status: 'error',
+                                isPermissionError: errorInfo === 'INVALID_USER_SCODE'
                             });
                         }
 
@@ -640,19 +642,40 @@
                         </div>
                     `;
                 } else {
-                    html += `
-                        <div class="route-result">
-                            <div class="route-header">
-                                <div class="route-type">
-                                    <span class="status-indicator status-error"></span>
-                                    ❌ ${result.strategy}
+                    // 特殊处理权限错误
+                    if (result.isPermissionError) {
+                        html += `
+                            <div class="route-result" style="border-left-color: #faad14;">
+                                <div class="route-header">
+                                    <div class="route-type">
+                                        <span class="status-indicator" style="background: #faad14;"></span>
+                                        ⚠️ API权限问题
+                                    </div>
+                                </div>
+                                <div class="route-details">
+                                    <div style="color: #fa8c16; font-weight: bold;">INVALID_USER_SCODE</div>
+                                    <div style="margin-top: 8px; font-size: 0.9em; color: #666;">
+                                        当前API密钥未开通公交路径规划服务<br>
+                                        请访问 <a href="https://console.amap.com/" target="_blank" style="color: #1890ff;">高德开放平台控制台</a> 检查服务权限
+                                    </div>
                                 </div>
                             </div>
-                            <div class="route-details">
-                                <div style="color: #ff4d4f;">${result.error}</div>
+                        `;
+                    } else {
+                        html += `
+                            <div class="route-result">
+                                <div class="route-header">
+                                    <div class="route-type">
+                                        <span class="status-indicator status-error"></span>
+                                        ❌ ${result.strategy}
+                                    </div>
+                                </div>
+                                <div class="route-details">
+                                    <div style="color: #ff4d4f;">${result.error}</div>
+                                </div>
                             </div>
-                        </div>
-                    `;
+                        `;
+                    }
                 }
             });
 

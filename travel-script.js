@@ -727,7 +727,12 @@ function planTransitRoute(origin, destination, callback) {
                         results.sort((a, b) => a.time - b.time);
                         callback(null, results.slice(0, 3)); // 返回最多3个方案
                     } else {
-                        callback('未找到合适的公共交通路线，可能是：\n1. 该区域暂无公交地铁覆盖\n2. 起终点距离过近\n3. 请尝试更具体的地址');
+                        // 检查是否是权限问题
+                        if (result && result.info === 'INVALID_USER_SCODE') {
+                            callback('❌ API权限不足\n\n可能原因：\n1. 当前API密钥未开通公交路径规划服务\n2. 请在高德开放平台控制台检查服务权限\n3. 确认API调用配额是否充足\n\n💡 建议：\n• 登录 console.amap.com 检查应用配置\n• 确保已开通"公交路径规划"服务\n• 或使用驾车+步行路线作为替代方案');
+                        } else {
+                            callback('未找到合适的公共交通路线，可能是：\n1. 该区域暂无公交地铁覆盖\n2. 起终点距离过近\n3. 请尝试更具体的地址\n4. API服务暂时不可用');
+                        }
                     }
                 }
             });

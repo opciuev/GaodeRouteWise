@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>高德API诊断工具</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.2em;
+            margin-bottom: 10px;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .section {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+
+        .section h3 {
+            color: #333;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #555;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .result {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            border-left: 4px solid #52c41a;
+        }
+
+        .result.error {
+            border-left-color: #ff4d4f;
+            background: #fff2f0;
+        }
+
+        .result.warning {
+            border-left-color: #faad14;
+            background: #fffbe6;
+        }
+
+        .code {
+            background: #f6f8fa;
+            padding: 10px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            margin: 10px 0;
+            overflow-x: auto;
+        }
+
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .status-item {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            border: 2px solid #e9ecef;
+        }
+
+        .status-item.success {
+            border-color: #52c41a;
+            background: #f6ffed;
+        }
+
+        .status-item.error {
+            border-color: #ff4d4f;
+            background: #fff2f0;
+        }
+
+        .status-icon {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+
+        .fix-steps {
+            background: #e6f7ff;
+            border: 1px solid #91d5ff;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .fix-steps h4 {
+            color: #1890ff;
+            margin-bottom: 15px;
+        }
+
+        .fix-steps ol {
+            padding-left: 20px;
+        }
+
+        .fix-steps li {
+            margin-bottom: 10px;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔧 高德API诊断工具</h1>
+            <p>检测API密钥权限和服务配置问题</p>
+        </div>
+
+        <div class="content">
+            <!-- API密钥输入 -->
+            <div class="section">
+                <h3>🔑 API密钥设置</h3>
+                <div class="input-group">
+                    <label for="api-key">高德地图API密钥</label>
+                    <input type="password" id="api-key" placeholder="请输入您的API密钥">
+                </div>
+                <button class="btn" id="start-diagnosis">开始诊断</button>
+                <button class="btn" id="clear-results">清除结果</button>
+            </div>
+
+            <!-- 诊断结果 -->
+            <div class="section" id="diagnosis-section" style="display: none;">
+                <h3>📊 诊断结果</h3>
+                <div class="status-grid" id="status-grid"></div>
+                <div id="detailed-results"></div>
+            </div>
+
+            <!-- 解决方案 -->
+            <div class="section" id="solution-section" style="display: none;">
+                <h3>💡 解决方案</h3>
+                <div id="solution-content"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let AMap;
+        let apiKey;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('start-diagnosis').addEventListener('click', startDiagnosis);
+            document.getElementById('clear-results').addEventListener('click', clearResults);
+        });
+
+        async function startDiagnosis() {
+            apiKey = document.getElementById('api-key').value.trim();
+            if (!apiKey) {
+                alert('请输入API密钥');
+                return;
+            }
+
+            const btn = document.getElementById('start-diagnosis');
+            btn.textContent = '🔄 诊断中...';
+            btn.disabled = true;
+
+            try {
+                // 显示诊断区域
+                document.getElementById('diagnosis-section').style.display = 'block';
+                document.getElementById('solution-section').style.display = 'block';
+
+                // 初始化状态网格
+                initStatusGrid();
+
+                // 开始各项检测
+                await loadMapAPI();
+                await testBasicServices();
+                await testTransitService();
+                
+                generateSolutions();
+
+            } catch (error) {
+                console.error('诊断过程出错:', error);
+                addResult('error', '诊断过程出错: ' + error.message);
+            } finally {
+                btn.textContent = '开始诊断';
+                btn.disabled = false;
+            }
+        }
+
+        function initStatusGrid() {
+            const grid = document.getElementById('status-grid');
+            grid.innerHTML = `
+                <div class="status-item" id="status-api">
+                    <div class="status-icon">⏳</div>
+                    <div>API加载</div>
+                </div>
+                <div class="status-item" id="status-geocoding">
+                    <div class="status-icon">⏳</div>
+                    <div>地理编码</div>
+                </div>
+                <div class="status-item" id="status-driving">
+                    <div class="status-icon">⏳</div>
+                    <div>驾车路线</div>
+                </div>
+                <div class="status-item" id="status-transit">
+                    <div class="status-icon">⏳</div>
+                    <div>公交路线</div>
+                </div>
+            `;
+        }
+
+        function updateStatus(id, success, message = '') {
+            const item = document.getElementById(id);
+            if (success) {
+                item.className = 'status-item success';
+                item.querySelector('.status-icon').textContent = '✅';
+            } else {
+                item.className = 'status-item error';
+                item.querySelector('.status-icon').textContent = '❌';
+            }
+            if (message) {
+                item.querySelector('div:last-child').textContent = message;
+            }
+        }
+
+        async function loadMapAPI() {
+            return new Promise((resolve, reject) => {
+                // 移除旧脚本
+                const oldScript = document.querySelector('script[src*="webapi.amap.com"]');
+                if (oldScript) {
+                    oldScript.remove();
+                }
+
+                if (window.AMap) {
+                    delete window.AMap;
+                }
+
+                const script = document.createElement('script');
+                script.src = `https://webapi.amap.com/maps?v=1.4.15&key=${apiKey}`;
+
+                script.onload = () => {
+                    if (window.AMap) {
+                        AMap = window.AMap;
+                        updateStatus('status-api', true, 'API加载成功');
+                        addResult('success', 'API脚本加载成功');
+                        resolve();
+                    } else {
+                        updateStatus('status-api', false, 'AMap对象未找到');
+                        addResult('error', 'AMap对象未找到');
+                        reject(new Error('AMap对象未找到'));
+                    }
+                };
+
+                script.onerror = () => {
+                    updateStatus('status-api', false, 'API加载失败');
+                    addResult('error', 'API脚本加载失败，请检查网络连接和API密钥');
+                    reject(new Error('API脚本加载失败'));
+                };
+
+                document.head.appendChild(script);
+            });
+        }
+
+        async function testBasicServices() {
+            // 测试地理编码服务
+            try {
+                await testGeocoding();
+                updateStatus('status-geocoding', true, '地理编码正常');
+            } catch (error) {
+                updateStatus('status-geocoding', false, '地理编码失败');
+                addResult('error', '地理编码服务测试失败: ' + error.message);
+            }
+
+            // 测试驾车路线服务
+            try {
+                await testDriving();
+                updateStatus('status-driving', true, '驾车路线正常');
+            } catch (error) {
+                updateStatus('status-driving', false, '驾车路线失败');
+                addResult('error', '驾车路线服务测试失败: ' + error.message);
+            }
+        }
+
+        function testGeocoding() {
+            return new Promise((resolve, reject) => {
+                AMap.plugin('AMap.Geocoder', function() {
+                    const geocoder = new AMap.Geocoder({
+                        city: '北京',
+                        extensions: 'all'
+                    });
+
+                    geocoder.getLocation('天安门', function(status, result) {
+                        if (status === 'complete' && result.geocodes && result.geocodes.length > 0) {
+                            addResult('success', '地理编码服务正常工作');
+                            resolve();
+                        } else {
+                            addResult('error', `地理编码失败: ${result.info || status}`);
+                            reject(new Error(result.info || status));
+                        }
+                    });
+                });
+            });
+        }
+
+        function testDriving() {
+            return new Promise((resolve, reject) => {
+                AMap.plugin('AMap.Driving', function() {
+                    const driving = new AMap.Driving({
+                        map: null,
+                        panel: null
+                    });
+
+                    driving.search([116.379028, 39.865042], [116.427281, 39.903719], function(status, result) {
+                        if (status === 'complete' && result.routes && result.routes.length > 0) {
+                            addResult('success', '驾车路线服务正常工作');
+                            resolve();
+                        } else {
+                            addResult('error', `驾车路线失败: ${result.info || status}`);
+                            reject(new Error(result.info || status));
+                        }
+                    });
+                });
+            });
+        }
+
+        async function testTransitService() {
+            // 测试不同的公交路线配置
+            const testConfigs = [
+                {
+                    name: '基础配置',
+                    config: {
+                        city: '北京',
+                        policy: AMap.TransferPolicy.LEAST_TIME
+                    }
+                },
+                {
+                    name: '全国配置',
+                    config: {
+                        city: '全国',
+                        policy: AMap.TransferPolicy.LEAST_TIME
+                    }
+                },
+                {
+                    name: '跨城市配置',
+                    config: {
+                        city: '全国',
+                        cityd: '全国',
+                        policy: AMap.TransferPolicy.LEAST_TIME
+                    }
+                }
+            ];
+
+            for (const testConfig of testConfigs) {
+                try {
+                    await testSingleTransitConfig(testConfig);
+                } catch (error) {
+                    console.error(`${testConfig.name}测试失败:`, error);
+                }
+            }
+        }
+
+        function testSingleTransitConfig(testConfig) {
+            return new Promise((resolve, reject) => {
+                AMap.plugin('AMap.Transfer', function() {
+                    const transfer = new AMap.Transfer({
+                        map: null,
+                        panel: null,
+                        ...testConfig.config
+                    });
+
+                    transfer.search([
+                        { keyword: '北京站' },
+                        { keyword: '天安门' }
+                    ], function(status, result) {
+                        console.log(`${testConfig.name} 测试结果:`, status, result);
+                        
+                        if (status === 'complete' && result.plans && result.plans.length > 0) {
+                            addResult('success', `${testConfig.name}: 公交路线查询成功`);
+                            updateStatus('status-transit', true, '公交路线正常');
+                            resolve();
+                        } else {
+                            const errorInfo = result ? result.info : status;
+                            addResult('error', `${testConfig.name}: ${errorInfo}`);
+                            
+                            if (errorInfo === 'INVALID_USER_SCODE') {
+                                addResult('warning', '检测到 INVALID_USER_SCODE 错误，这通常表示API密钥没有开通公交路径规划服务');
+                                updateStatus('status-transit', false, '权限不足');
+                            } else {
+                                updateStatus('status-transit', false, errorInfo);
+                            }
+                            
+                            reject(new Error(errorInfo));
+                        }
+                    });
+                });
+            });
+        }
+
+        function addResult(type, message) {
+            const resultsDiv = document.getElementById('detailed-results');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `result ${type}`;
+            resultDiv.innerHTML = `
+                <strong>${type === 'success' ? '✅' : type === 'error' ? '❌' : '⚠️'}</strong>
+                ${message}
+            `;
+            resultsDiv.appendChild(resultDiv);
+        }
+
+        function generateSolutions() {
+            const solutionContent = document.getElementById('solution-content');
+            
+            solutionContent.innerHTML = `
+                <div class="fix-steps">
+                    <h4>🔧 INVALID_USER_SCODE 错误解决方案</h4>
+                    <ol>
+                        <li><strong>登录高德开放平台控制台</strong>
+                            <br>访问: <a href="https://console.amap.com/" target="_blank">https://console.amap.com/</a>
+                        </li>
+                        <li><strong>检查应用配置</strong>
+                            <br>进入"应用管理" → 找到您的应用 → 点击"查看"
+                        </li>
+                        <li><strong>确认服务权限</strong>
+                            <br>在应用详情页面，确保以下服务已开通：
+                            <div class="code">
+✅ Web服务API<br>
+✅ 路径规划<br>
+✅ 公交路径规划<br>
+✅ 地理编码
+                            </div>
+                        </li>
+                        <li><strong>检查配额限制</strong>
+                            <br>确认您的API调用次数没有超出限制
+                        </li>
+                        <li><strong>验证API密钥</strong>
+                            <br>确保使用的是正确的API密钥，且没有过期
+                        </li>
+                        <li><strong>联系技术支持</strong>
+                            <br>如果以上步骤都正确，请联系高德技术支持
+                        </li>
+                    </ol>
+                </div>
+
+                <div class="fix-steps">
+                    <h4>🎯 替代解决方案</h4>
+                    <ol>
+                        <li><strong>使用驾车+步行组合</strong>
+                            <br>如果公交服务不可用，可以使用驾车路线作为参考，结合步行路线
+                        </li>
+                        <li><strong>申请新的API密钥</strong>
+                            <br>重新申请一个包含完整服务权限的API密钥
+                        </li>
+                        <li><strong>使用其他地图服务</strong>
+                            <br>考虑集成百度地图或腾讯地图的公交服务作为备选方案
+                        </li>
+                    </ol>
+                </div>
+
+                <div class="fix-steps">
+                    <h4>📞 获取帮助</h4>
+                    <p>如果问题仍然存在，您可以：</p>
+                    <ul>
+                        <li>访问高德开放平台文档: <a href="https://lbs.amap.com/api/webservice/guide/api/direction" target="_blank">公交路径规划API文档</a></li>
+                        <li>查看高德开发者社区: <a href="https://developer.amap.com/" target="_blank">开发者社区</a></li>
+                        <li>联系高德技术支持获取专业帮助</li>
+                    </ul>
+                </div>
+            `;
+        }
+
+        function clearResults() {
+            document.getElementById('diagnosis-section').style.display = 'none';
+            document.getElementById('solution-section').style.display = 'none';
+            document.getElementById('detailed-results').innerHTML = '';
+        }
+    </script>
+</body>
+</html>
