@@ -515,7 +515,12 @@ function planMultipleRoutes(origin, destination, modes) {
         planSingleRoute(origin, destination, mode, (error, result) => {
             completed++;
             if (!error && result) {
-                results.push(result);
+                // result 可能是单个对象或数组（公交路线返回多个方案）
+                if (Array.isArray(result)) {
+                    results.push(...result);
+                } else {
+                    results.push(result);
+                }
             }
             
             if (completed === modes.length) {
@@ -551,7 +556,8 @@ function planSingleRoute(origin, destination, mode, callback) {
                     planWalkingRoute(originCoord, destCoord, callback);
                     break;
                 case 'transit':
-                    planTransitRoute(originCoord, destCoord, callback);
+                    // 对于公交路线，直接传递地址而不是坐标
+                    planTransitRoute(origin, destination, callback);
                     break;
                 case 'riding':
                     planRidingRoute(originCoord, destCoord, callback);
@@ -631,32 +637,137 @@ function planWalkingRoute(origin, destination, callback) {
 
 function planTransitRoute(origin, destination, callback) {
     AMap.plugin('AMap.Transfer', function() {
-        const transfer = new AMap.Transfer({
-            map: map,
-            panel: null,
-            city: '北京'
-        });
-        
-        transfer.search(origin, destination, function(status, result) {
-            if (status === 'complete' && result.plans && result.plans.length > 0) {
-                const plan = result.plans[0];
-                callback(null, {
-                    type: '公共交通',
-                    icon: '🚌',
-                    time: Math.round(plan.time / 60),
-                    distance: (plan.distance / 1000).toFixed(1),
-                    cost: plan.cost || 0,
-                    details: plan.segments ? plan.segments.slice(0, 3).map(seg => {
-                        if (seg.transit_mode === 'WALK') return '步行';
-                        return seg.transit && seg.transit[0] ? seg.transit[0].name : '换乘';
-                    }).join(' → ') : '公交路线',
-                    color: '#fa8c16'
-                });
-            } else {
-                callback('公共交通路线规划失败');
-            }
+        // 使用多种策略规划公交路线
+        const strategies = [
+            { policy: AMap.TransferPolicy.LEAST_TIME, name: '最快路线', icon: '⚡' },
+            { policy: AMap.TransferPolicy.LEAST_TRANSFER, name: '最少换乘', icon: '🔄' },
+            { policy: AMap.TransferPolicy.LEAST_WALK, name: '最少步行', icon: '🚶' },
+            { policy: AMap.TransferPolicy.LEAST_FEE, name: '最省钱', icon: '💰' }
+        ];
+
+        const results = [];
+        let completed = 0;
+
+        strategies.forEach((strategy, index) => {
+            const transfer = new AMap.Transfer({
+                map: index === 0 ? map : null, // 只在第一个策略上显示路线
+                panel: null,
+                city: '全国', // 支持全国范围查询
+                policy: strategy.policy,
+                nightflag: 1, // 包含夜班车
+                cityd: '全国' // 跨城市查询
+            });
+            
+            transfer.search(origin, destination, function(status, result) {
+                completed++;
+                
+                if (status === 'complete' && result.plans && result.plans.length > 0) {
+                    const plan = result.plans[0];
+                    
+                    // 分析路线中的交通工具类型
+                    const transitTypes = new Set();
+                    let hasSubway = false;
+                    let hasBus = false;
+                    
+                    if (plan.segments) {
+                        plan.segments.forEach(seg => {
+                            if (seg.transit && seg.transit.length > 0) {
+                                const transitType = seg.transit[0].type || '';
+                                transitTypes.add(transitType);
+                                
+                                if (transitType.includes('地铁') || transitType.includes('轻轨')) {
+                                    hasSubway = true;
+                                } else if (transitType.includes('公交') || transitType.includes('巴士')) {
+                                    hasBus = true;
+                                }
+                            }
+                        });
+                    }
+
+                    // 根据交通工具类型选择图标和颜色
+                    let routeIcon = '🚌';
+                    let routeColor = '#fa8c16';
+                    let routeType = '公共交通';
+
+                    if (hasSubway && hasBus) {
+                        routeIcon = '🚇🚌';
+                        routeColor = '#722ed1';
+                        routeType = '地铁+公交';
+                    } else if (hasSubway) {
+                        routeIcon = '🚇';
+                        routeColor = '#1890ff';
+                        routeType = '地铁';
+                    } else if (hasBus) {
+                        routeIcon = '🚌';
+                        routeColor = '#fa8c16';
+                        routeType = '公交';
+                    }
+
+                    // 生成详细的路线描述
+                    const details = generateTransitDetails(plan.segments);
+
+                    results.push({
+                        type: `${strategy.icon} ${routeType}(${strategy.name})`,
+                        icon: routeIcon,
+                        time: Math.round(plan.time / 60),
+                        distance: (plan.distance / 1000).toFixed(1),
+                        cost: plan.cost || 0,
+                        transfers: plan.transfers || 0,
+                        details: details,
+                        color: routeColor,
+                        segments: plan.segments,
+                        walkDistance: calculateWalkDistance(plan.segments)
+                    });
+                }
+                
+                // 所有策略完成后返回结果
+                if (completed === strategies.length) {
+                    if (results.length > 0) {
+                        // 按时间排序，返回最优的几个方案
+                        results.sort((a, b) => a.time - b.time);
+                        callback(null, results.slice(0, 3)); // 返回最多3个方案
+                    } else {
+                        callback('未找到合适的公共交通路线，可能是：\n1. 该区域暂无公交地铁覆盖\n2. 起终点距离过近\n3. 请尝试更具体的地址');
+                    }
+                }
+            });
         });
     });
+}
+
+// 生成详细的公交路线描述
+function generateTransitDetails(segments) {
+    if (!segments || segments.length === 0) return '路线详情';
+    
+    const details = [];
+    segments.forEach(seg => {
+        if (seg.transit_mode === 'WALK') {
+            const walkTime = Math.round(seg.time / 60);
+            if (walkTime > 0) {
+                details.push(`步行${walkTime}分钟`);
+            }
+        } else if (seg.transit && seg.transit.length > 0) {
+            const transit = seg.transit[0];
+            const stations = seg.transit[0].via_num || 0;
+            details.push(`${transit.name}(${stations}站)`);
+        }
+    });
+    
+    return details.join(' → ') || '路线详情';
+}
+
+// 计算步行距离
+function calculateWalkDistance(segments) {
+    if (!segments) return 0;
+    
+    let walkDistance = 0;
+    segments.forEach(seg => {
+        if (seg.transit_mode === 'WALK') {
+            walkDistance += seg.distance || 0;
+        }
+    });
+    
+    return Math.round(walkDistance);
 }
 
 function planRidingRoute(origin, destination, callback) {
@@ -707,6 +818,8 @@ function displayResults(results) {
             <div class="route-info">
                 <div class="route-distance">距离: ${route.distance}公里</div>
                 ${route.cost > 0 ? `<div class="route-cost">费用: ¥${route.cost}</div>` : ''}
+                ${route.transfers !== undefined ? `<div class="route-transfers">换乘: ${route.transfers}次</div>` : ''}
+                ${route.walkDistance !== undefined ? `<div class="route-walk">步行: ${route.walkDistance}米</div>` : ''}
                 <div style="margin-top: 8px; font-size: 12px; color: #888;">
                     ${route.details}
                 </div>

@@ -564,9 +564,20 @@ header p {
     color: #333;
 }
 
-.route-distance, .route-cost {
+.route-distance, .route-cost, .route-transfers, .route-walk {
     color: #888;
     margin-top: 5px;
+    font-size: 0.9em;
+}
+
+.route-transfers {
+    color: #fa8c16;
+    font-weight: 500;
+}
+
+.route-walk {
+    color: #52c41a;
+    font-weight: 500;
 }
 
 .trip-summary {
